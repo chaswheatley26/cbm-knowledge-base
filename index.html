@@ -69,26 +69,28 @@ const Sparkles = LR.Sparkles || NoIcon;
 /* =========================================================================
    REWST WEBHOOKS — this UI talks to Rewst exclusively through these 4 calls.
    The page is deployed as a standalone file on GitHub Pages (a real origin,
-   not the sandboxed about:srcdoc iframe App Builder's Custom HTML component
-   used), so that origin can actually be CORS-whitelisted on the Rewst side.
-   With CORS working from a real origin, the triggers are back to
-   wait_for_results: true — each call's response body IS the final workflow
-   output directly, no execution_id / polling / timeout needed.
+   whitelisted directly on the Rewst triggers), which fixes the CORS-origin
+   problem. However wait_for_results:true was found to respond with a 303
+   redirect to a separate results endpoint that doesn't carry the same CORS
+   headers — so CORS and wait_for_results are mutually exclusive regardless
+   of origin. Triggers are back to wait_for_results:false: each call
+   returns an execution_id immediately, and the real result is fetched by
+   polling a status endpoint separately.
 
-   No explicit Content-Type header is sent on purpose: with a plain string
-   body and no headers, fetch defaults to "text/plain;charset=UTF-8", which
-   keeps the request CORS-"simple" and avoids an OPTIONS preflight — Rewst's
-   engine was previously seen rejecting that preflight outright. Rewst's
-   receiver needs to parse the body as JSON from its raw content rather than
-   relying on the Content-Type label; if fields come through empty or
-   unparsed after testing on the real GitHub Pages origin, that header may
-   need to go back in — the raw response is logged below either way so
-   that's easy to tell from the console.
+   No explicit Content-Type header is sent on either the trigger POST or
+   the status-poll GET, on purpose: with a plain string body and no custom
+   headers, the request stays CORS-"simple" and the browser skips the
+   OPTIONS preflight entirely — Rewst's engine was previously seen
+   rejecting that preflight outright. Rewst's receiver needs to parse the
+   body as JSON from its raw content rather than relying on the
+   Content-Type label; the raw response is logged at every step below, so
+   if fields ever come through empty or unparsed, that's visible in the
+   console immediately rather than guessed at.
    ========================================================================= */
 // Bump this string every time a new version is shipped, so the visible
 // header text alone confirms whether the latest paste is actually live —
 // no devtools required.
-const BUILD_TAG = "2026-07-07-13";
+const BUILD_TAG = "2026-07-07-14";
 
 const WEBHOOKS = {
   search: "https://engine.rewst.io/webhooks/custom/trigger/019f3d3f-6058-7fc1-ac1b-ff0459453f45/01976967-f419-7877-9ff8-e4db81c148a6",
@@ -96,46 +98,142 @@ const WEBHOOKS = {
   browse: "https://engine.rewst.io/webhooks/custom/trigger/019f3d42-9452-7181-b74d-9cd202860b1d/01976967-f419-7877-9ff8-e4db81c148a6",
   getRecord: "https://engine.rewst.io/webhooks/custom/trigger/019f3d43-ffa6-77f9-93ef-4f792a80d2a4/01976967-f419-7877-9ff8-e4db81c148a6",
 };
+const STATUS_URL_BASE = "https://engine.rewst.io/webhooks/custom/trigger/status/";
+const POLL_INTERVAL_MS = 2000;
+const POLL_TIMEOUT_MS = 30000;
 
-// POST to a webhook and return its parsed JSON body directly. Reads the raw
-// text first rather than assuming valid JSON, since empty/unexpected bodies
-// have shown up before — and logs the raw response either way so the real
-// shape is visible in the console on the first live test.
+function sleep(ms) {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+// We don't have Rewst's documented shape for the status response, so this
+// checks several plausible field names/values rather than betting on one,
+// and logs the raw payload on EVERY poll (not just the final one) so the
+// real shape is visible in the console the first time this runs live.
+const STATUS_FIELD_NAMES = ["status", "state", "execution_status"];
+const SUCCESS_VALUES = ["completed", "complete", "finished", "success", "succeeded"];
+const FAILURE_VALUES = ["failed", "failure", "error", "cancelled", "canceled"];
+const OUTPUT_KEYS = ["output", "result", "data", "workflow_output"];
+
+function readStatusValue(data) {
+  for (const field of STATUS_FIELD_NAMES) {
+    if (data && data[field] !== undefined && data[field] !== null) {
+      return String(data[field]).toLowerCase();
+    }
+  }
+  return "";
+}
+
+function extractOutput(data) {
+  for (const key of OUTPUT_KEYS) {
+    if (data && data[key] !== undefined) return data[key];
+  }
+  return data;
+}
+
+async function pollExecution(executionId) {
+  const start = Date.now();
+  while (true) {
+    if (Date.now() - start > POLL_TIMEOUT_MS) {
+      throw new Error("This took longer than 30 seconds to complete. Please try again.");
+    }
+    // No custom headers here on purpose — see the top-of-file note on why.
+    const res = await fetch(STATUS_URL_BASE + executionId, { method: "GET" });
+    if (!res.ok) throw new Error(`Status check failed (${res.status})`);
+    const rawText = await res.text();
+    let data = {};
+    if (rawText) {
+      try {
+        data = JSON.parse(rawText);
+      } catch (e) {
+        console.log("Rewst poll response for", executionId, "— non-JSON body:", rawText.slice(0, 300));
+        await sleep(POLL_INTERVAL_MS);
+        continue;
+      }
+    }
+    console.log("Rewst poll response for", executionId, ":", data, "| raw:", JSON.stringify(rawText));
+    const statusValue = readStatusValue(data);
+    if (SUCCESS_VALUES.includes(statusValue)) {
+      return extractOutput(data);
+    }
+    if (FAILURE_VALUES.includes(statusValue)) {
+      throw new Error("The request failed while processing.");
+    }
+    await sleep(POLL_INTERVAL_MS);
+  }
+}
+
+// POST to a webhook, then poll for its result. Reads the raw text first
+// rather than assuming valid JSON, and checks a few plausible response
+// headers in case the execution ID is sent there instead of in the body.
+const EXECUTION_ID_HEADER_NAMES = ["x-execution-id", "execution-id", "x-rewst-execution-id", "location"];
+
+function readExecutionIdFromHeaders(res) {
+  for (const name of EXECUTION_ID_HEADER_NAMES) {
+    const value = res.headers.get(name);
+    if (value) {
+      const parts = value.split("/").filter(Boolean);
+      return parts.length ? parts[parts.length - 1] : value;
+    }
+  }
+  return null;
+}
+
 async function callWebhook(url, body) {
   const res = await fetch(url, {
     method: "POST",
     body: JSON.stringify(body),
   });
-  if (!res.ok) throw new Error(`Request failed (${res.status})`);
+  if (!res.ok && res.status !== 202) {
+    throw new Error(`Request failed (${res.status})`);
+  }
 
   const rawText = await res.text();
-  console.log("Rewst webhook response — status:", res.status, res.statusText);
-  console.log("Rewst webhook response — raw body:", JSON.stringify(rawText));
+  console.log("Rewst webhook trigger response — status:", res.status, res.statusText);
+  console.log("Rewst webhook trigger response — visible headers:", [...res.headers.entries()]);
+  console.log("Rewst webhook trigger response — raw body:", JSON.stringify(rawText));
 
-  if (!rawText) return {};
-  try {
-    return JSON.parse(rawText);
-  } catch (e) {
-    throw new Error("The response wasn't valid JSON: " + rawText.slice(0, 200));
+  let data = null;
+  if (rawText) {
+    try {
+      data = JSON.parse(rawText);
+    } catch (e) {
+      throw new Error("The trigger response wasn't valid JSON: " + rawText.slice(0, 200));
+    }
   }
+
+  const executionId =
+    (data && (data.execution_id || data.executionId || data.id)) ||
+    readExecutionIdFromHeaders(res);
+
+  if (!executionId) {
+    throw new Error(
+      rawText
+        ? "No execution ID was found in the response body or headers."
+        : "The trigger response body was completely empty, and no execution ID header was found either."
+    );
+  }
+  return pollExecution(executionId);
 }
 
 async function searchTickets(query) {
-  const data = await callWebhook(WEBHOOKS.search, { search_query: query });
-  return data.search_results || [];
+  const output = await callWebhook(WEBHOOKS.search, { search_query: query });
+  return (output && output.search_results) || [];
 }
+// Submit's own result body has nothing meaningful in it — success just
+// means the execution reached "completed" without throwing.
 async function submitTicket(rawText, sourceTicketId) {
   await callWebhook(WEBHOOKS.submit, { raw_ticket_text: rawText, source_ticket_id: sourceTicketId || "" });
   return true;
 }
 async function browseRecords(filterCompany, filterTicketType) {
-  const data = await callWebhook(WEBHOOKS.browse, { filter_company: filterCompany || "", filter_ticket_type: filterTicketType || "" });
-  return data.records || [];
+  const output = await callWebhook(WEBHOOKS.browse, { filter_company: filterCompany || "", filter_ticket_type: filterTicketType || "" });
+  return (output && output.records) || [];
 }
 // record always comes back as an array containing exactly one object.
 async function getRecord(id) {
-  const data = await callWebhook(WEBHOOKS.getRecord, { record_id: id });
-  return (data.record && data.record[0]) || null;
+  const output = await callWebhook(WEBHOOKS.getRecord, { record_id: id });
+  return (output && output.record && output.record[0]) || null;
 }
 
 /* ---------- small data helpers (resolution_steps / tags are plain strings) ---------- */
@@ -234,7 +332,7 @@ function SearchPage({ onOpenDetail }) {
           autoFocus
         />
         <div style={styles.bigBoxFoot}>
-          <span style={styles.bigBoxHint}>{busy ? "Searching… this can take up to 10 seconds" : "Press Enter to search"}</span>
+          <span style={styles.bigBoxHint}>{busy ? "Searching… this can take up to 30 seconds" : "Press Enter to search"}</span>
           <button
             style={{ ...styles.sendBtn, opacity: query.trim() && !busy ? 1 : 0.5, cursor: query.trim() && !busy ? "pointer" : "not-allowed" }}
             onClick={runSearch}
@@ -331,7 +429,7 @@ function SubmitPage() {
           onClick={run}
           disabled={!raw.trim() || busy}
         >
-          {busy ? <><Loader2 size={16} className="spin" /> Saving to IT Glue… (up to 15s)</> : <><Sparkles size={16} /> Parse &amp; save</>}
+          {busy ? <><Loader2 size={16} className="spin" /> Saving to IT Glue… (up to 30s)</> : <><Sparkles size={16} /> Parse &amp; save</>}
         </button>
       </div>
     </div>
@@ -404,7 +502,7 @@ function BrowsePage({ onOpenDetail }) {
       {error && <div style={styles.errorBox}><AlertCircle size={15} /> {error}</div>}
 
       {busy ? (
-        <div style={styles.centerCol}><Loader2 size={22} className="spin" /><span style={styles.centerHint}>Loading…</span></div>
+        <div style={styles.centerCol}><Loader2 size={22} className="spin" /><span style={styles.centerHint}>Loading… this can take up to 30 seconds</span></div>
       ) : shown.length === 0 ? (
         <div style={styles.noMatch}>
           <div style={styles.noMatchTitle}>Nothing here yet</div>
@@ -461,7 +559,7 @@ function DetailView({ id, onBack }) {
     <div>
       <button style={styles.backBtn} onClick={onBack}><ChevronLeft size={16} /> Back</button>
 
-      {busy && <div style={styles.centerCol}><Loader2 size={22} className="spin" /><span style={styles.centerHint}>Loading…</span></div>}
+      {busy && <div style={styles.centerCol}><Loader2 size={22} className="spin" /><span style={styles.centerHint}>Loading… this can take up to 30 seconds</span></div>}
       {error && <div style={styles.errorBox}><AlertCircle size={15} /> {error}</div>}
 
       {record && !busy && (
