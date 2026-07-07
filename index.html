@@ -67,66 +67,32 @@ const Building2 = LR.Building2 || NoIcon;
 const Sparkles = LR.Sparkles || NoIcon;
 
 /* =========================================================================
-   REWST WEBHOOKS — this UI talks to Rewst through 4 calls. Two transport
-   paths are live side by side right now (2026-07-07), mid-migration:
+   REWST WEBHOOKS — all 4 calls now go through a Cloudflare Worker proxy
+   (see cloudflare-worker.js and PROXY_URL below) instead of straight to
+   Rewst. Rewst's triggers use wait_for_results:true, which a browser can't
+   use directly — it responds with a 303 redirect to a separate results
+   endpoint that doesn't carry CORS headers, and browsers enforce CORS on
+   redirect hops too. The Worker dodges this entirely: the browser only
+   ever talks to the Worker (which sets its own CORS headers), and the
+   Worker's server-to-server fetch to Rewst isn't subject to CORS at all,
+   so it can follow the redirect itself and hand back the final JSON
+   directly. No execution_id/polling involved on any of the four calls.
 
-   - search goes through a Cloudflare Worker proxy (see cloudflare-worker.js
-     and PROXY_URL below) using Rewst's wait_for_results:true mode. A
-     browser can't use wait_for_results:true directly — it responds with a
-     303 redirect to a separate results endpoint that doesn't carry CORS
-     headers, and browsers enforce CORS on redirect hops too. A Worker
-     dodges this entirely: the browser only ever talks to the Worker (which
-     sets its own CORS headers), and the Worker's server-to-server fetch to
-     Rewst isn't subject to CORS at all, so it can follow the redirect
-     itself and hand back the final JSON directly. No polling needed on
-     this path.
-   - submit/browse/getRecord still go straight to Rewst with
-     wait_for_results:false (execution_id + poll), since only search's
-     workflow has been confirmed fixed on Rewst's side so far — see
-     CLAUDE.md "Unresolved" before migrating the rest to the proxy.
-
-   Content-Type: application/json IS sent on all calls (2026-07-07,
-   supersedes the old "no custom headers" rule) now that Rewst's CORS
-   config allows the resulting preflight — see CLAUDE.md gotcha #3.
+   The old wait_for_results:false + execution_id + poll architecture (and
+   its Content-Type/CORS history) is preserved in CLAUDE.md History for
+   context — it's fully replaced now, not just superseded on one call.
    ========================================================================= */
 // Bump this string every time a new version is shipped, so the visible
 // header text alone confirms whether the latest paste is actually live —
 // no devtools required.
-const BUILD_TAG = "2026-07-07-17";
+const BUILD_TAG = "2026-07-07-18";
 
 const PROXY_URL = "https://cbm-kb-proxy.chas-dea.workers.dev";
 
-const WEBHOOKS = {
-  search: "https://engine.rewst.io/webhooks/custom/trigger/019f3d3f-6058-7fc1-ac1b-ff0459453f45/01976967-f419-7877-9ff8-e4db81c148a6",
-  submit: "https://engine.rewst.io/webhooks/custom/trigger/019f3d41-1b97-7c9b-a640-90428869b601/01976967-f419-7877-9ff8-e4db81c148a6",
-  browse: "https://engine.rewst.io/webhooks/custom/trigger/019f3d42-9452-7181-b74d-9cd202860b1d/01976967-f419-7877-9ff8-e4db81c148a6",
-  getRecord: "https://engine.rewst.io/webhooks/custom/trigger/019f3d43-ffa6-77f9-93ef-4f792a80d2a4/01976967-f419-7877-9ff8-e4db81c148a6",
-};
-const STATUS_URL_BASE = "https://engine.rewst.io/webhooks/custom/trigger/status/";
-const POLL_INTERVAL_MS = 2000;
-const POLL_TIMEOUT_MS = 30000;
+// Rewst's raw webhook URLs live in cloudflare-worker.js now (REWST_WEBHOOKS)
+// — the frontend only ever talks to PROXY_URL with an ?action= param.
 
-function sleep(ms) {
-  return new Promise((resolve) => setTimeout(resolve, ms));
-}
-
-// We don't have Rewst's documented shape for the status response, so this
-// checks several plausible field names/values rather than betting on one,
-// and logs the raw payload on EVERY poll (not just the final one) so the
-// real shape is visible in the console the first time this runs live.
-const STATUS_FIELD_NAMES = ["status", "state", "execution_status"];
-const SUCCESS_VALUES = ["completed", "complete", "finished", "success", "succeeded"];
-const FAILURE_VALUES = ["failed", "failure", "error", "cancelled", "canceled"];
 const OUTPUT_KEYS = ["output", "result", "data", "workflow_output"];
-
-function readStatusValue(data) {
-  for (const field of STATUS_FIELD_NAMES) {
-    if (data && data[field] !== undefined && data[field] !== null) {
-      return String(data[field]).toLowerCase();
-    }
-  }
-  return "";
-}
 
 function extractOutput(data) {
   for (const key of OUTPUT_KEYS) {
@@ -135,98 +101,9 @@ function extractOutput(data) {
   return data;
 }
 
-async function pollExecution(executionId) {
-  const start = Date.now();
-  while (true) {
-    if (Date.now() - start > POLL_TIMEOUT_MS) {
-      throw new Error("This took longer than 30 seconds to complete. Please try again.");
-    }
-    const res = await fetch(STATUS_URL_BASE + executionId, {
-      method: "GET",
-      headers: { "Content-Type": "application/json" },
-    });
-    if (!res.ok) throw new Error(`Status check failed (${res.status})`);
-    const rawText = await res.text();
-    let data = {};
-    if (rawText) {
-      try {
-        data = JSON.parse(rawText);
-      } catch (e) {
-        console.log("Rewst poll response for", executionId, "— non-JSON body:", rawText.slice(0, 300));
-        await sleep(POLL_INTERVAL_MS);
-        continue;
-      }
-    }
-    console.log("Rewst poll response for", executionId, ":", data, "| raw:", JSON.stringify(rawText));
-    const statusValue = readStatusValue(data);
-    if (SUCCESS_VALUES.includes(statusValue)) {
-      return extractOutput(data);
-    }
-    if (FAILURE_VALUES.includes(statusValue)) {
-      throw new Error("The request failed while processing.");
-    }
-    await sleep(POLL_INTERVAL_MS);
-  }
-}
-
-// POST to a webhook, then poll for its result. Reads the raw text first
-// rather than assuming valid JSON, and checks a few plausible response
-// headers in case the execution ID is sent there instead of in the body.
-const EXECUTION_ID_HEADER_NAMES = ["x-execution-id", "execution-id", "x-rewst-execution-id", "location"];
-
-function readExecutionIdFromHeaders(res) {
-  for (const name of EXECUTION_ID_HEADER_NAMES) {
-    const value = res.headers.get(name);
-    if (value) {
-      const parts = value.split("/").filter(Boolean);
-      return parts.length ? parts[parts.length - 1] : value;
-    }
-  }
-  return null;
-}
-
-async function callWebhook(url, body) {
-  const res = await fetch(url, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify(body),
-  });
-  if (!res.ok && res.status !== 202) {
-    throw new Error(`Request failed (${res.status})`);
-  }
-
-  const rawText = await res.text();
-  console.log("Rewst webhook trigger response — status:", res.status, res.statusText);
-  console.log("Rewst webhook trigger response — visible headers:", [...res.headers.entries()]);
-  console.log("Rewst webhook trigger response — raw body:", JSON.stringify(rawText));
-
-  let data = null;
-  if (rawText) {
-    try {
-      data = JSON.parse(rawText);
-    } catch (e) {
-      throw new Error("The trigger response wasn't valid JSON: " + rawText.slice(0, 200));
-    }
-  }
-
-  const executionId =
-    (data && (data.execution_id || data.executionId || data.id)) ||
-    readExecutionIdFromHeaders(res);
-
-  if (!executionId) {
-    throw new Error(
-      rawText
-        ? "No execution ID was found in the response body or headers."
-        : "The trigger response body was completely empty, and no execution ID header was found either."
-    );
-  }
-  return pollExecution(executionId);
-}
-
-// Goes through the Cloudflare Worker proxy instead of straight to Rewst —
-// see the top-of-file note and cloudflare-worker.js. The Worker already
-// resolved wait_for_results:true's redirect server-side, so the response
-// here is the final result directly; no execution_id/polling involved.
+// Goes through the Cloudflare Worker proxy — see the top-of-file note and
+// cloudflare-worker.js. The Worker already resolved wait_for_results:true's
+// redirect server-side, so the response here is the final result directly.
 async function callProxyWebhook(action, body) {
   const res = await fetch(`${PROXY_URL}?action=${action}`, {
     method: "POST",
@@ -253,16 +130,16 @@ async function searchTickets(query) {
 // Submit's own result body has nothing meaningful in it — success just
 // means the execution reached "completed" without throwing.
 async function submitTicket(rawText, sourceTicketId) {
-  await callWebhook(WEBHOOKS.submit, { raw_ticket_text: rawText, source_ticket_id: sourceTicketId || "" });
+  await callProxyWebhook("submit", { raw_ticket_text: rawText, source_ticket_id: sourceTicketId || "" });
   return true;
 }
 async function browseRecords(filterCompany, filterTicketType) {
-  const output = await callWebhook(WEBHOOKS.browse, { filter_company: filterCompany || "", filter_ticket_type: filterTicketType || "" });
+  const output = await callProxyWebhook("browse", { filter_company: filterCompany || "", filter_ticket_type: filterTicketType || "" });
   return (output && output.records) || [];
 }
 // record always comes back as an array containing exactly one object.
 async function getRecord(id) {
-  const output = await callWebhook(WEBHOOKS.getRecord, { record_id: id });
+  const output = await callProxyWebhook("getRecord", { record_id: id });
   return (output && output.record && output.record[0]) || null;
 }
 
