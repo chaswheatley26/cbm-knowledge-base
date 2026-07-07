@@ -77,20 +77,22 @@ const Sparkles = LR.Sparkles || NoIcon;
    returns an execution_id immediately, and the real result is fetched by
    polling a status endpoint separately.
 
-   No explicit Content-Type header is sent on either the trigger POST or
-   the status-poll GET, on purpose: with a plain string body and no custom
-   headers, the request stays CORS-"simple" and the browser skips the
-   OPTIONS preflight entirely — Rewst's engine was previously seen
-   rejecting that preflight outright. Rewst's receiver needs to parse the
-   body as JSON from its raw content rather than relying on the
-   Content-Type label; the raw response is logged at every step below, so
-   if fields ever come through empty or unparsed, that's visible in the
-   console immediately rather than guessed at.
+   Content-Type: application/json IS sent on both calls (2026-07-07). It
+   was omitted for a while because Rewst's engine used to reject the
+   resulting OPTIONS preflight outright, which meant the body arrived as
+   a raw string instead of parsed JSON (Rewst read CTX.body as a
+   stringified blob, so query fields resolved to nothing). Rewst has
+   since fixed CORS to allow the preflight (confirmed live:
+   access-control-allow-methods includes OPTIONS, access-control-allow-
+   headers includes Content-Type), so the header is back on. If empty
+   trigger responses or unparsed bodies ever reappear, check whether this
+   regressed before reverting. The raw response is logged at every step
+   below either way.
    ========================================================================= */
 // Bump this string every time a new version is shipped, so the visible
 // header text alone confirms whether the latest paste is actually live —
 // no devtools required.
-const BUILD_TAG = "2026-07-07-14";
+const BUILD_TAG = "2026-07-07-15";
 
 const WEBHOOKS = {
   search: "https://engine.rewst.io/webhooks/custom/trigger/019f3d3f-6058-7fc1-ac1b-ff0459453f45/01976967-f419-7877-9ff8-e4db81c148a6",
@@ -137,8 +139,10 @@ async function pollExecution(executionId) {
     if (Date.now() - start > POLL_TIMEOUT_MS) {
       throw new Error("This took longer than 30 seconds to complete. Please try again.");
     }
-    // No custom headers here on purpose — see the top-of-file note on why.
-    const res = await fetch(STATUS_URL_BASE + executionId, { method: "GET" });
+    const res = await fetch(STATUS_URL_BASE + executionId, {
+      method: "GET",
+      headers: { "Content-Type": "application/json" },
+    });
     if (!res.ok) throw new Error(`Status check failed (${res.status})`);
     const rawText = await res.text();
     let data = {};
@@ -182,6 +186,7 @@ function readExecutionIdFromHeaders(res) {
 async function callWebhook(url, body) {
   const res = await fetch(url, {
     method: "POST",
+    headers: { "Content-Type": "application/json" },
     body: JSON.stringify(body),
   });
   if (!res.ok && res.status !== 202) {
