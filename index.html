@@ -67,32 +67,34 @@ const Building2 = LR.Building2 || NoIcon;
 const Sparkles = LR.Sparkles || NoIcon;
 
 /* =========================================================================
-   REWST WEBHOOKS — this UI talks to Rewst exclusively through these 4 calls.
-   The page is deployed as a standalone file on GitHub Pages (a real origin,
-   whitelisted directly on the Rewst triggers), which fixes the CORS-origin
-   problem. However wait_for_results:true was found to respond with a 303
-   redirect to a separate results endpoint that doesn't carry the same CORS
-   headers — so CORS and wait_for_results are mutually exclusive regardless
-   of origin. Triggers are back to wait_for_results:false: each call
-   returns an execution_id immediately, and the real result is fetched by
-   polling a status endpoint separately.
+   REWST WEBHOOKS — this UI talks to Rewst through 4 calls. Two transport
+   paths are live side by side right now (2026-07-07), mid-migration:
 
-   Content-Type: application/json IS sent on both calls (2026-07-07). It
-   was omitted for a while because Rewst's engine used to reject the
-   resulting OPTIONS preflight outright, which meant the body arrived as
-   a raw string instead of parsed JSON (Rewst read CTX.body as a
-   stringified blob, so query fields resolved to nothing). Rewst has
-   since fixed CORS to allow the preflight (confirmed live:
-   access-control-allow-methods includes OPTIONS, access-control-allow-
-   headers includes Content-Type), so the header is back on. If empty
-   trigger responses or unparsed bodies ever reappear, check whether this
-   regressed before reverting. The raw response is logged at every step
-   below either way.
+   - search goes through a Cloudflare Worker proxy (see cloudflare-worker.js
+     and PROXY_URL below) using Rewst's wait_for_results:true mode. A
+     browser can't use wait_for_results:true directly — it responds with a
+     303 redirect to a separate results endpoint that doesn't carry CORS
+     headers, and browsers enforce CORS on redirect hops too. A Worker
+     dodges this entirely: the browser only ever talks to the Worker (which
+     sets its own CORS headers), and the Worker's server-to-server fetch to
+     Rewst isn't subject to CORS at all, so it can follow the redirect
+     itself and hand back the final JSON directly. No polling needed on
+     this path.
+   - submit/browse/getRecord still go straight to Rewst with
+     wait_for_results:false (execution_id + poll), since only search's
+     workflow has been confirmed fixed on Rewst's side so far — see
+     CLAUDE.md "Unresolved" before migrating the rest to the proxy.
+
+   Content-Type: application/json IS sent on all calls (2026-07-07,
+   supersedes the old "no custom headers" rule) now that Rewst's CORS
+   config allows the resulting preflight — see CLAUDE.md gotcha #3.
    ========================================================================= */
 // Bump this string every time a new version is shipped, so the visible
 // header text alone confirms whether the latest paste is actually live —
 // no devtools required.
-const BUILD_TAG = "2026-07-07-15";
+const BUILD_TAG = "2026-07-07-17";
+
+const PROXY_URL = "https://cbm-kb-proxy.chas-dea.workers.dev";
 
 const WEBHOOKS = {
   search: "https://engine.rewst.io/webhooks/custom/trigger/019f3d3f-6058-7fc1-ac1b-ff0459453f45/01976967-f419-7877-9ff8-e4db81c148a6",
@@ -221,8 +223,31 @@ async function callWebhook(url, body) {
   return pollExecution(executionId);
 }
 
+// Goes through the Cloudflare Worker proxy instead of straight to Rewst —
+// see the top-of-file note and cloudflare-worker.js. The Worker already
+// resolved wait_for_results:true's redirect server-side, so the response
+// here is the final result directly; no execution_id/polling involved.
+async function callProxyWebhook(action, body) {
+  const res = await fetch(`${PROXY_URL}?action=${action}`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(body),
+  });
+  const rawText = await res.text();
+  console.log("Proxy response for", action, "— status:", res.status, "| raw:", JSON.stringify(rawText).slice(0, 500));
+  if (!res.ok) throw new Error(`Request failed (${res.status})`);
+  if (!rawText) throw new Error("The proxy returned an empty response.");
+  let data;
+  try {
+    data = JSON.parse(rawText);
+  } catch (e) {
+    throw new Error("The proxy response wasn't valid JSON: " + rawText.slice(0, 200));
+  }
+  return extractOutput(data);
+}
+
 async function searchTickets(query) {
-  const output = await callWebhook(WEBHOOKS.search, { search_query: query });
+  const output = await callProxyWebhook("search", { search_query: query });
   return (output && output.search_results) || [];
 }
 // Submit's own result body has nothing meaningful in it — success just
