@@ -85,7 +85,7 @@ const Sparkles = LR.Sparkles || NoIcon;
 // Bump this string every time a new version is shipped, so the visible
 // header text alone confirms whether the latest paste is actually live —
 // no devtools required.
-const BUILD_TAG = "2026-07-07-18";
+const BUILD_TAG = "2026-07-07-19";
 
 const PROXY_URL = "https://cbm-kb-proxy.chas-dea.workers.dev";
 
@@ -311,7 +311,7 @@ function SubmitPage() {
 
       <div style={styles.pasteCard}>
         <Field label="Ticket # (optional)">
-          <input style={styles.input} value={sourceId} onChange={(e) => setSourceId(e.target.value)} placeholder="e.g. 12345" />
+          <input style={styles.input} value={sourceId} onChange={(e) => setSourceId(e.target.value)} placeholder="e.g. T20260703.0023" />
         </Field>
         <div style={{ marginTop: 16 }}>
           <label style={styles.fieldLabel}>Raw ticket text</label>
