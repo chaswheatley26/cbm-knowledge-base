@@ -1,702 +1,176 @@
-{% raw %}
 <!DOCTYPE html>
 <html lang="en">
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-<title>CBM Knowledge Base</title>
-
-<!--
-  React, ReactDOM, Babel, and lucide-react are loaded dynamically further
-  down (see the bootstrap script near the end of body), not as static tags
-  here. Some "Custom HTML" host components re-inject pasted <script> tags
-  programmatically rather than parsing them as a normal document, which can
-  break the usual guarantee that head scripts finish loading, in order,
-  before anything after them runs. Loading them from our own inline script
-  with explicit load-event waiting sidesteps that entirely.
--->
-  
+<title>CBM IT — Home</title>
 <style>
   * { box-sizing: border-box; }
-  html, body, #root { margin: 0; min-height: 100%; }
-  .spin { animation: spin 0.9s linear infinite; }
-  @keyframes spin { to { transform: rotate(360deg); } }
-  .card:hover { border-color: #c3ccdd !important; transform: translateY(-1px); box-shadow: 0 4px 14px rgba(20,30,60,0.07) !important; }
-  input:focus, textarea:focus, select:focus { outline: none; border-color: #2b3d6b !important; box-shadow: 0 0 0 3px rgba(43,61,107,0.14); }
-  button { font-family: inherit; }
+  html, body { margin: 0; min-height: 100%; }
+  body {
+    background: #f5f7fb;
+    font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+    color: #1a2238;
+    display: flex;
+    flex-direction: column;
+    min-height: 100vh;
+  }
+
+  .wrap {
+    max-width: 880px;
+    margin: 0 auto;
+    padding: 64px 24px 60px;
+    width: 100%;
+    flex: 1;
+  }
+
+  .banner {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    text-align: center;
+    margin-bottom: 48px;
+  }
+  .logoMark {
+    width: 64px;
+    height: 64px;
+    border-radius: 16px;
+    background: #fff;
+    border: 1px solid #e6eaf2;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    box-shadow: 0 4px 14px rgba(20,30,60,0.08);
+    margin-bottom: 20px;
+  }
+  .welcome {
+    font-family: Georgia, 'Times New Roman', serif;
+    font-size: 34px;
+    font-weight: 600;
+    letter-spacing: -0.02em;
+    color: #2b3d6b;
+    margin: 0 0 10px;
+  }
+  .sub {
+    font-size: 15px;
+    color: #7a8499;
+    margin: 0;
+    max-width: 420px;
+    line-height: 1.5;
+  }
+
+  .grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+    gap: 20px;
+  }
+
+  .card {
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
+    background: #fff;
+    border: 1px solid #e6eaf2;
+    border-radius: 16px;
+    padding: 28px;
+    text-decoration: none;
+    color: inherit;
+    transition: all 0.16s ease;
+    box-shadow: 0 4px 20px rgba(20,30,60,0.04);
+  }
+  .card:hover {
+    border-color: #c3ccdd;
+    transform: translateY(-2px);
+    box-shadow: 0 8px 24px rgba(20,30,60,0.09);
+  }
+
+  .iconWrap {
+    width: 46px;
+    height: 46px;
+    border-radius: 12px;
+    background: #eef1f7;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+  }
+  .iconWrap svg { stroke: #2b3d6b; }
+  .card.gold .iconWrap { background: #fbf3de; }
+  .card.gold .iconWrap svg { stroke: #a4832a; }
+
+  .cardTitle {
+    font-size: 17px;
+    font-weight: 700;
+    letter-spacing: -0.01em;
+    margin: 0;
+  }
+  .cardDesc {
+    font-size: 13.5px;
+    color: #7a8499;
+    line-height: 1.55;
+    margin: 0;
+    flex: 1;
+  }
+  .cardFoot {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 12.5px;
+    font-weight: 650;
+    color: #2b3d6b;
+  }
+  .card.gold .cardFoot { color: #a4832a; }
+
+  footer {
+    text-align: center;
+    padding: 20px 24px 28px;
+    font-size: 12px;
+    color: #9aa3b5;
+    flex-shrink: 0;
+  }
 </style>
 </head>
 <body>
-<div id="root">Loading…</div>
-
-<!--
-  The JSX source sits here as inert text (type="text/plain" so the browser
-  never tries to execute it directly). The bootstrap script below reads it,
-  compiles it with Babel using the CLASSIC JSX runtime, and runs the result.
-  This matters: Babel's default "automatic" runtime compiles JSX into
-  `import { jsx as _jsx } from "react/jsx-runtime"`, a real ES module import
-  — which throws "Cannot use import statement outside a module" in a plain
-  script and silently kills the whole app (this is what caused the page to
-  hang on "Loading…" indefinitely). The classic runtime compiles to plain
-  React.createElement(...) calls instead, which need no import at all.
--->
-<script type="text/plain" id="app-source">
-const { useState, useEffect, useCallback } = React;
-
-/* -------------------------------------------------------------------------
-   Lucide icons — loaded from CDN as window.lucideReact (UMD global). If the
-   global name ever changes upstream, every icon below quietly falls back to
-   rendering nothing rather than crashing the app, so this is worth a quick
-   visual check the first time this loads for real: if icons are missing,
-   the CDN global name is the first thing to check in devtools console
-   (inspect `window.lucideReact` / `window.LucideReact`).
-   ------------------------------------------------------------------------- */
-const LR = window.lucideReact || window.LucideReact || {};
-const NoIcon = () => null;
-const Search = LR.Search || NoIcon;
-const Plus = LR.Plus || NoIcon;
-const X = LR.X || NoIcon;
-const Loader2 = LR.Loader2 || NoIcon;
-const CheckCircle2 = LR.CheckCircle2 || NoIcon;
-const AlertCircle = LR.AlertCircle || NoIcon;
-const BookOpen = LR.BookOpen || NoIcon;
-const Tag = LR.Tag || NoIcon;
-const HashIcon = LR.Hash || NoIcon;
-const ChevronLeft = LR.ChevronLeft || NoIcon;
-const Building2 = LR.Building2 || NoIcon;
-const Sparkles = LR.Sparkles || NoIcon;
-
-/* =========================================================================
-   REWST WEBHOOKS — all 4 calls now go through a Cloudflare Worker proxy
-   (see cloudflare-worker.js and PROXY_URL below) instead of straight to
-   Rewst. Rewst's triggers use wait_for_results:true, which a browser can't
-   use directly — it responds with a 303 redirect to a separate results
-   endpoint that doesn't carry CORS headers, and browsers enforce CORS on
-   redirect hops too. The Worker dodges this entirely: the browser only
-   ever talks to the Worker (which sets its own CORS headers), and the
-   Worker's server-to-server fetch to Rewst isn't subject to CORS at all,
-   so it can follow the redirect itself and hand back the final JSON
-   directly. No execution_id/polling involved on any of the four calls.
-
-   The old wait_for_results:false + execution_id + poll architecture (and
-   its Content-Type/CORS history) is preserved in CLAUDE.md History for
-   context — it's fully replaced now, not just superseded on one call.
-   ========================================================================= */
-// Bump this string every time a new version is shipped, so the visible
-// header text alone confirms whether the latest paste is actually live —
-// no devtools required.
-const BUILD_TAG = "1.1";
-
-const PROXY_URL = "https://cbm-kb-proxy.chas-dea.workers.dev";
-
-// Rewst's raw webhook URLs live in cloudflare-worker.js now (REWST_WEBHOOKS)
-// — the frontend only ever talks to PROXY_URL with an ?action= param.
-
-const OUTPUT_KEYS = ["output", "result", "data", "workflow_output"];
-
-function extractOutput(data) {
-  for (const key of OUTPUT_KEYS) {
-    if (data && data[key] !== undefined) return data[key];
-  }
-  return data;
-}
-
-// Goes through the Cloudflare Worker proxy — see the top-of-file note and
-// cloudflare-worker.js. The Worker already resolved wait_for_results:true's
-// redirect server-side, so the response here is the final result directly.
-async function callProxyWebhook(action, body) {
-  const res = await fetch(`${PROXY_URL}?action=${action}`, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify(body),
-  });
-  const rawText = await res.text();
-  console.log("Proxy response for", action, "— status:", res.status, "| raw:", JSON.stringify(rawText).slice(0, 500));
-  if (!res.ok) throw new Error(`Request failed (${res.status})`);
-  if (!rawText) throw new Error("The proxy returned an empty response.");
-  let data;
-  try {
-    data = JSON.parse(rawText);
-  } catch (e) {
-    throw new Error("The proxy response wasn't valid JSON: " + rawText.slice(0, 200));
-  }
-  return extractOutput(data);
-}
-
-async function searchTickets(query) {
-  const output = await callProxyWebhook("search", { search_query: query });
-  return (output && output.search_results) || [];
-}
-// Submit's own result body has nothing meaningful in it — success just
-// means the execution reached "completed" without throwing.
-async function submitTicket(rawText, sourceTicketId) {
-  await callProxyWebhook("submit", { raw_ticket_text: rawText, source_ticket_id: sourceTicketId || "" });
-  return true;
-}
-async function browseRecords(filterCompany, filterTicketType) {
-  const output = await callProxyWebhook("browse", { filter_company: filterCompany || "", filter_ticket_type: filterTicketType || "" });
-  return (output && output.records) || [];
-}
-// record always comes back as an array containing exactly one object.
-async function getRecord(id) {
-  const output = await callProxyWebhook("getRecord", { record_id: id });
-  return (output && output.record && output.record[0]) || null;
-}
-
-/* ---------- small data helpers (resolution_steps / tags are plain strings) ---------- */
-function splitSteps(v) {
-  if (!v) return [];
-  const s = String(v).trim();
-  if (!s) return [];
-  let parts = s.split(/\n+/).map((p) => p.trim()).filter(Boolean);
-  if (parts.length > 1) return parts.map((p) => p.replace(/^\d+[.)]\s*/, ""));
-  parts = s.split(/(?=\d+\.\s)/).map((p) => p.trim()).filter(Boolean);
-  if (parts.length > 1) return parts.map((p) => p.replace(/^\d+\.\s*/, ""));
-  return [s];
-}
-function splitTags(v) {
-  if (!v) return [];
-  const s = String(v).trim();
-  if (!s) return [];
-  let parts = s.split(/\n+/).map((p) => p.trim()).filter(Boolean);
-  if (parts.length > 1) return parts;
-  return s.split(/[,;]+/).map((p) => p.trim()).filter(Boolean);
-}
-function toText(v) {
-  return v ? String(v) : "";
-}
-function autoGrow(e) {
-  const el = e.target;
-  el.style.height = "auto";
-  el.style.height = Math.min(el.scrollHeight, 400) + "px";
-}
-
-/* ---------- CBM mark ---------- */
-function CbmMark({ size = 26 }) {
-  const NAVY = "#2b3d6b", GOLD = "#c9a938";
-  return (
-    <svg width={size} height={size} viewBox="0 0 100 100" fill="none" xmlns="http://www.w3.org/2000/svg" aria-label="CBM">
-      <path d="M40 10 L66 10 Q70 10 69 14 L60 44 Q59 48 55 48 L29 48 Q25 48 26 44 L35 14 Q36 10 40 10 Z" fill={GOLD} />
-      <path d="M58 40 L80 40 Q84 40 83 44 L72 86 Q71 90 67 90 L45 90 Q41 90 42 86 L53 44 Q54 40 58 40 Z" fill={NAVY} />
-      <path d="M58 62 L74 68 L67 71 L72 80 L68 82 L63 73 L57 77 Z" fill="#fff" />
-    </svg>
-  );
-}
-
-// Scores are always 0–10 integers; anything below 4 is never returned by search.
-function ConfidenceBadge({ score }) {
-  if (score === null || score === undefined || score === "") return null;
-  const num = typeof score === "number" ? score : parseFloat(score);
-  if (Number.isNaN(num)) return null;
-  const tier = num >= 8 ? "high" : num >= 5 ? "mid" : "low";
-  const colors = {
-    high: { bg: "#e6f4ec", fg: "#1b7a44" },   // 8-10 green
-    mid: { bg: "#fdf0e3", fg: "#a85a16" },    // 5-7 amber
-    low: { bg: "#eef1f7", fg: "#5a6479" },    // 4 grey
-  };
-  const c = colors[tier];
-  return <span style={{ ...styles.pill, background: c.bg, color: c.fg }}>{num}/10 match</span>;
-}
-
-function Section({ label, children }) {
-  return <div style={styles.section}><div style={styles.sectionLabel}>{label}</div>{children}</div>;
-}
-function Field({ label, children }) {
-  return <div style={styles.field}><label style={styles.fieldLabel}>{label}</label>{children}</div>;
-}
-
-/* ================================ SEARCH ================================ */
-function SearchPage({ onOpenDetail }) {
-  const [query, setQuery] = useState("");
-  const [busy, setBusy] = useState(false);
-  const [results, setResults] = useState(null);
-  const [error, setError] = useState("");
-
-  async function runSearch() {
-    if (!query.trim() || busy) return;
-    setBusy(true); setError(""); setResults(null);
-    try {
-      const r = await searchTickets(query.trim());
-      setResults(r);
-    } catch (e) {
-      setError("Couldn't reach the knowledge base search: " + (e && e.message ? e.message : "unknown error"));
-    }
-    setBusy(false);
-  }
-
-  return (
-    <div style={styles.heroWrap}>
-      <div style={styles.greeting}><CbmMark size={30} /> <span>Search resolved tickets</span></div>
-      <div style={styles.bigBox}>
-        <textarea
-          style={styles.bigInput}
-          rows={2}
-          value={query}
-          onChange={(e) => setQuery(e.target.value)}
-          onInput={autoGrow}
-          placeholder="Describe the problem — e.g. “VPN drops every 40 minutes on SonicWall”"
-          onKeyDown={(e) => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); runSearch(); } }}
-          autoFocus
-        />
-        <div style={styles.bigBoxFoot}>
-          <span style={styles.bigBoxHint}>{busy ? "Searching… this can take up to 30 seconds" : "Press Enter to search"}</span>
-          <button
-            style={{ ...styles.sendBtn, opacity: query.trim() && !busy ? 1 : 0.5, cursor: query.trim() && !busy ? "pointer" : "not-allowed" }}
-            onClick={runSearch}
-            disabled={!query.trim() || busy}
-          >
-            {busy ? <Loader2 size={17} className="spin" /> : <Search size={17} />}
-          </button>
-        </div>
+  <div class="wrap">
+    <div class="banner">
+      <div class="logoMark">
+        <svg width="34" height="34" viewBox="0 0 100 100" fill="none" xmlns="http://www.w3.org/2000/svg" aria-label="CBM">
+          <path d="M40 10 L66 10 Q70 10 69 14 L60 44 Q59 48 55 48 L29 48 Q25 48 26 44 L35 14 Q36 10 40 10 Z" fill="#c9a938" />
+          <path d="M58 40 L80 40 Q84 40 83 44 L72 86 Q71 90 67 90 L45 90 Q41 90 42 86 L53 44 Q54 40 58 40 Z" fill="#2b3d6b" />
+          <path d="M58 62 L74 68 L67 71 L72 80 L68 82 L63 73 L57 77 Z" fill="#fff" />
+        </svg>
       </div>
-
-      {error && <div style={styles.errorBox}><AlertCircle size={15} /> {error}</div>}
-
-      {results && (
-        results.length === 0 ? (
-          <div style={styles.noMatch}>
-            <div style={styles.noMatchTitle}>No matches yet</div>
-            <p style={styles.noMatchText}>Nothing in the knowledge base closely matches that. Try different symptoms or the exact error text.</p>
-          </div>
-        ) : (
-          <div style={{ marginTop: 24 }}>
-            <div style={styles.resultsHead}>{results.length} match{results.length === 1 ? "" : "es"}</div>
-            <div style={styles.list}>
-              {results.map((r) => (
-                <button key={r.id} style={styles.card} className="card" onClick={() => onOpenDetail(r.id, "search")}>
-                  <div style={styles.cardTop}>
-                    <span style={styles.cardTitle}>{r.problem_summary}</span>
-                    <ConfidenceBadge score={r.relevance_score} />
-                  </div>
-                  <div style={styles.cardMeta}>
-                    {r.company && <span style={styles.metaTag}><Building2 size={12} /> {r.company}</span>}
-                    {r.ticket_type && <span style={styles.metaTag}><Tag size={12} /> {r.ticket_type}</span>}
-                  </div>
-                  {r.relevance_reason && <p style={styles.cardPreview}>{r.relevance_reason}</p>}
-                </button>
-              ))}
-            </div>
-          </div>
-        )
-      )}
+      <h1 class="welcome">Welcome to CBM IT</h1>
+      <p class="sub">Internal tools for the CBM IT team. Pick a tool below to get started.</p>
     </div>
-  );
-}
 
-/* ================================ SUBMIT ================================ */
-function SubmitPage() {
-  const [raw, setRaw] = useState("");
-  const [sourceId, setSourceId] = useState("");
-  const [busy, setBusy] = useState(false);
-  const [error, setError] = useState("");
-  const [done, setDone] = useState(false);
-
-  async function run() {
-    if (!raw.trim() || busy) return;
-    setBusy(true); setError(""); setDone(false);
-    try {
-      await submitTicket(raw.trim(), sourceId.trim());
-      setDone(true);
-      setRaw(""); setSourceId("");
-    } catch (e) {
-      setError("Couldn't save this ticket: " + (e && e.message ? e.message : "unknown error"));
-    }
-    setBusy(false);
-  }
-
-  return (
-    <div style={styles.heroWrap}>
-      <h1 style={styles.heroTitle}>Add a solved ticket</h1>
-      <p style={styles.heroSub}>Paste the full resolved ticket. Claude reads it, pulls out the problem and fix, and saves it to IT Glue for the whole team.</p>
-
-      <div style={styles.pasteCard}>
-        <Field label="Ticket # (optional)">
-          <input style={styles.input} value={sourceId} onChange={(e) => setSourceId(e.target.value)} placeholder="e.g. T20260703.0023" />
-        </Field>
-        <div style={{ marginTop: 16 }}>
-          <label style={styles.fieldLabel}>Raw ticket text</label>
-          <textarea
-            style={{ ...styles.textarea, minHeight: 220, fontFamily: "ui-monospace, monospace", fontSize: 13, marginTop: 7 }}
-            rows={12}
-            value={raw}
-            onChange={(e) => setRaw(e.target.value)}
-            placeholder="Paste the full ticket text here…"
-          />
+    <div class="grid">
+      <a class="card" href="kb/">
+        <div class="iconWrap">
+          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <circle cx="11" cy="11" r="8"></circle>
+            <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
+          </svg>
         </div>
+        <h2 class="cardTitle">CBM Knowledge Base</h2>
+        <p class="cardDesc">Search, submit, and browse resolved-ticket knowledge — find how a similar problem was fixed before, or log one you just closed.</p>
+        <span class="cardFoot">Open tool →</span>
+      </a>
 
-        {error && <div style={styles.errorBox}><AlertCircle size={15} /> {error}</div>}
-        {done && (
-          <div style={styles.successBox}>
-            <CheckCircle2 size={16} /> Saved to the knowledge base.
-          </div>
-        )}
-
-        <button
-          style={{ ...styles.primaryBtn, marginTop: 14, opacity: raw.trim() && !busy ? 1 : 0.5, cursor: raw.trim() && !busy ? "pointer" : "not-allowed" }}
-          onClick={run}
-          disabled={!raw.trim() || busy}
-        >
-          {busy ? <><Loader2 size={16} className="spin" /> Saving to IT Glue… (up to 30s)</> : <><Sparkles size={16} /> Parse &amp; save</>}
-        </button>
-      </div>
+      <a class="card gold" href="https://app.rewst.io/organizations/01976967-f419-7877-9ff8-e4db81c148a6/form/019f23ca-595a-7196-b3ba-1db12decbf73" target="_blank" rel="noopener noreferrer">
+        <div class="iconWrap">
+          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9"></path>
+            <path d="M10.3 21a1.94 1.94 0 0 0 3.4 0"></path>
+          </svg>
+        </div>
+        <h2 class="cardTitle">Ticket Alert Tool</h2>
+        <p class="cardDesc">Enter a ticket number to submit it to the alert system.</p>
+        <span class="cardFoot">Open tool (new tab) ↗</span>
+      </a>
     </div>
-  );
-}
+  </div>
 
-/* ================================ BROWSE ================================ */
-function BrowsePage({ onOpenDetail }) {
-  const [company, setCompany] = useState("");
-  const [ticketType, setTicketType] = useState("");
-  const [q, setQ] = useState("");
-  const [records, setRecords] = useState([]);
-  const [companies, setCompanies] = useState([]);
-  const [types, setTypes] = useState([]);
-  const [busy, setBusy] = useState(true);
-  const [error, setError] = useState("");
-
-  const load = useCallback(async (companyF, typeF) => {
-    setBusy(true); setError("");
-    try {
-      const recs = await browseRecords(companyF, typeF);
-      setRecords(recs);
-      if (!companyF && !typeF) {
-        setCompanies([...new Set(recs.map((r) => r.company).filter(Boolean))].sort());
-        setTypes([...new Set(recs.map((r) => r.ticket_type).filter(Boolean))].sort());
-      }
-    } catch (e) {
-      setError("Couldn't load the knowledge base: " + (e && e.message ? e.message : "unknown error"));
-    }
-    setBusy(false);
-  }, []);
-
-  useEffect(() => { load("", ""); }, [load]);
-
-  function selectCompany(c) { setCompany(c); load(c, ticketType); }
-  function selectType(t) { setTicketType(t); load(company, t); }
-
-  const ql = q.trim().toLowerCase();
-  // tags is a plain string on each record, so it's included as-is rather than joined from an array.
-  const shown = ql
-    ? records.filter((r) => `${r.problem_summary} ${r.company} ${r.ticket_type} ${r.tags || ""}`.toLowerCase().includes(ql))
-    : records;
-
-  return (
-    <div>
-      <div style={styles.dbHead}>
-        <h1 style={styles.dbTitle}>Knowledge base</h1>
-        <span style={styles.dbCount}>{records.length} entr{records.length === 1 ? "y" : "ies"}</span>
-      </div>
-
-      <div style={styles.dbSearchBox}>
-        <Search size={17} style={{ color: "#7a8499", flexShrink: 0 }} />
-        <input style={styles.dbSearchInput} placeholder="Filter loaded results by keyword or tag…" value={q} onChange={(e) => setQ(e.target.value)} />
-        {q && <button style={styles.clearBtn} onClick={() => setQ("")}><X size={15} /></button>}
-      </div>
-
-      <div style={styles.filterRow}>
-        <button onClick={() => selectCompany("")} style={{ ...styles.chip, ...(company === "" ? styles.chipActive : {}) }}>All companies</button>
-        {companies.map((c) => (
-          <button key={c} onClick={() => selectCompany(c)} style={{ ...styles.chip, ...(company === c ? styles.chipActive : {}) }}>{c}</button>
-        ))}
-      </div>
-      <div style={styles.filterRow}>
-        <button onClick={() => selectType("")} style={{ ...styles.chip, ...(ticketType === "" ? styles.chipActive : {}) }}>All types</button>
-        {types.map((t) => (
-          <button key={t} onClick={() => selectType(t)} style={{ ...styles.chip, ...(ticketType === t ? styles.chipActive : {}) }}>{t}</button>
-        ))}
-      </div>
-
-      {error && <div style={styles.errorBox}><AlertCircle size={15} /> {error}</div>}
-
-      {busy ? (
-        <div style={styles.centerCol}><Loader2 size={22} className="spin" /><span style={styles.centerHint}>Loading… this can take up to 30 seconds</span></div>
-      ) : shown.length === 0 ? (
-        <div style={styles.noMatch}>
-          <div style={styles.noMatchTitle}>Nothing here yet</div>
-          <p style={styles.noMatchText}>No entries match this filter.</p>
-        </div>
-      ) : (
-        <div style={styles.list}>
-          {shown.map((r) => (
-            <button key={r.id} style={styles.card} className="card" onClick={() => onOpenDetail(r.id, "browse")}>
-              <div style={styles.cardTop}><span style={styles.cardTitle}>{r.problem_summary}</span></div>
-              <div style={styles.cardMeta}>
-                {r.company && <span style={styles.metaTag}><Building2 size={12} /> {r.company}</span>}
-                {r.ticket_type && <span style={styles.metaTag}><Tag size={12} /> {r.ticket_type}</span>}
-                {r.source_ticket_id && <span style={styles.metaTagFaint}><HashIcon size={11} /> {r.source_ticket_id}</span>}
-              </div>
-              {splitTags(r.tags).length > 0 && (
-                <div style={styles.cardMeta}>
-                  {splitTags(r.tags).map((t) => <span key={t} style={styles.metaTagFaint}>#{t}</span>)}
-                </div>
-              )}
-            </button>
-          ))}
-        </div>
-      )}
-    </div>
-  );
-}
-
-/* ================================ DETAIL ================================ */
-function DetailView({ id, onBack }) {
-  const [record, setRecord] = useState(null);
-  const [busy, setBusy] = useState(true);
-  const [error, setError] = useState("");
-
-  useEffect(() => {
-    let cancelled = false;
-    (async () => {
-      setBusy(true); setError("");
-      try {
-        const r = await getRecord(id);
-        if (!cancelled) setRecord(r);
-      } catch (e) {
-        if (!cancelled) setError("Couldn't load this record: " + (e && e.message ? e.message : "unknown error"));
-      }
-      if (!cancelled) setBusy(false);
-    })();
-    return () => { cancelled = true; };
-  }, [id]);
-
-  const steps = record ? splitSteps(record.resolution_steps) : [];
-  const tags = record ? splitTags(record.tags) : [];
-
-  return (
-    <div>
-      <button style={styles.backBtn} onClick={onBack}><ChevronLeft size={16} /> Back</button>
-
-      {busy && <div style={styles.centerCol}><Loader2 size={22} className="spin" /><span style={styles.centerHint}>Loading… this can take up to 30 seconds</span></div>}
-      {error && <div style={styles.errorBox}><AlertCircle size={15} /> {error}</div>}
-
-      {record && !busy && (
-        <div style={styles.detailCard}>
-          <div style={styles.detailHead}>
-            <h2 style={styles.detailTitle}>{record.problem_summary}</h2>
-          </div>
-          <div style={styles.detailMeta}>
-            {record.company && <span style={styles.metaTag}><Building2 size={12} /> {record.company}</span>}
-            {record.ticket_type && <span style={styles.metaTag}><Tag size={12} /> {record.ticket_type}</span>}
-            {record.source_ticket_id && <span style={styles.metaTagFaint}><HashIcon size={11} /> {record.source_ticket_id}</span>}
-          </div>
-
-          <Section label="Resolution steps">
-            {steps.length > 0 ? (
-              <ol style={styles.stepsList}>
-                {steps.map((s, i) => <li key={i} style={styles.stepItem}>{s}</li>)}
-              </ol>
-            ) : (
-              <p style={styles.bodyTextMuted}>No steps recorded.</p>
-            )}
-          </Section>
-
-          {record.affected_systems && (
-            <Section label="Affected systems"><p style={styles.bodyTextMuted}>{toText(record.affected_systems)}</p></Section>
-          )}
-          {record.error_messages && (
-            <Section label="Error messages"><pre style={styles.summaryText}>{toText(record.error_messages)}</pre></Section>
-          )}
-          {tags.length > 0 && (
-            <Section label="Tags">
-              <div style={styles.cardMeta}>{tags.map((t) => <span key={t} style={styles.metaTag}>#{t}</span>)}</div>
-            </Section>
-          )}
-        </div>
-      )}
-    </div>
-  );
-}
-
-/* ================================= APP ================================= */
-function App() {
-  const [page, setPage] = useState("search");
-  const [detail, setDetail] = useState(null); // { id, from }
-
-  function openDetail(id, from) { setDetail({ id, from }); }
-  function closeDetail() { setPage(detail.from); setDetail(null); }
-  function go(p) { setDetail(null); setPage(p); }
-
-  return (
-    <div style={styles.page}>
-      <header style={styles.header}>
-        <div style={styles.headerInner}>
-          <div style={styles.brand} onClick={() => go("search")} role="button">
-            <div style={styles.logoMark}><CbmMark size={26} /></div>
-            <div>
-              <div style={styles.brandName}>CBM Knowledge Base</div>
-              <div style={styles.brandSub}>Resolved ticket search · build {BUILD_TAG}</div>
-            </div>
-          </div>
-          <nav style={styles.navTabs}>
-            <button style={{ ...styles.navTab, ...(page === "search" && !detail ? styles.navTabActive : {}) }} onClick={() => go("search")}>
-              <Search size={15} /> Search
-            </button>
-            <button style={{ ...styles.navTab, ...(page === "submit" && !detail ? styles.navTabActive : {}) }} onClick={() => go("submit")}>
-              <Plus size={15} /> Submit
-            </button>
-            <button style={{ ...styles.navTab, ...(page === "browse" && !detail ? styles.navTabActive : {}) }} onClick={() => go("browse")}>
-              <BookOpen size={15} /> Browse
-            </button>
-          </nav>
-        </div>
-      </header>
-
-      <main style={styles.main}>
-        {detail ? (
-          <DetailView id={detail.id} onBack={closeDetail} />
-        ) : page === "search" ? (
-          <SearchPage onOpenDetail={openDetail} />
-        ) : page === "submit" ? (
-          <SubmitPage />
-        ) : (
-          <BrowsePage onOpenDetail={openDetail} />
-        )}
-      </main>
-    </div>
-  );
-}
-
-/* ================================ STYLES ================================ */
-const styles = {
-  page: { minHeight: "100vh", display: "flex", flexDirection: "column", background: "#f5f7fb", fontFamily: "'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif", color: "#1a2238" },
-  header: { background: "#fff", borderBottom: "1px solid #e6eaf2", flexShrink: 0, zIndex: 10 },
-  headerInner: { maxWidth: 880, margin: "0 auto", padding: "16px 24px", display: "flex", alignItems: "center", justifyContent: "space-between", gap: 20 },
-  brand: { display: "flex", alignItems: "center", gap: 12, cursor: "pointer" },
-  logoMark: { width: 40, height: 40, borderRadius: 11, background: "#fff", border: "1px solid #e6eaf2", display: "flex", alignItems: "center", justifyContent: "center", boxShadow: "0 2px 6px rgba(20,30,60,0.08)" },
-  brandName: { fontWeight: 700, fontSize: 17, letterSpacing: "-0.01em" },
-  brandSub: { fontSize: 12.5, color: "#7a8499" },
-  navTabs: { display: "flex", gap: 4, background: "#f5f7fb", borderRadius: 12, padding: 4 },
-  navTab: { display: "inline-flex", alignItems: "center", gap: 6, background: "none", border: "none", borderRadius: 9, padding: "8px 14px", fontSize: 13.5, fontWeight: 650, color: "#5a6479", cursor: "pointer" },
-  navTabActive: { background: "#fff", color: "#2b3d6b", boxShadow: "0 1px 4px rgba(20,30,60,0.08)" },
-  main: { maxWidth: 880, margin: "0 auto", padding: "28px 24px 60px", width: "100%", flex: 1 },
-
-  heroWrap: { maxWidth: 680, margin: "0 auto" },
-  greeting: { display: "flex", alignItems: "center", justifyContent: "center", gap: 12, fontSize: 27, fontWeight: 600, letterSpacing: "-0.02em", marginBottom: 22, fontFamily: "Georgia, 'Times New Roman', serif", color: "#2b3d6b", textAlign: "center" },
-  bigBox: { background: "#fff", border: "1px solid #d8deea", borderRadius: 16, padding: "16px 18px", boxShadow: "0 4px 20px rgba(20,30,60,0.05)" },
-  bigInput: { width: "100%", border: "none", outline: "none", resize: "none", fontSize: 16, fontFamily: "inherit", lineHeight: 1.5, color: "#1a2238", background: "transparent", minHeight: 28, maxHeight: 400, overflowY: "auto" },
-  bigBoxFoot: { display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12, marginTop: 8 },
-  bigBoxHint: { fontSize: 12.5, color: "#9aa3b5" },
-  sendBtn: { background: "#2b3d6b", color: "#fff", border: "none", borderRadius: 11, width: 40, height: 40, display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer", flexShrink: 0 },
-
-  heroTitle: { fontSize: 25, fontWeight: 750, margin: "0 0 6px", letterSpacing: "-0.02em" },
-  heroSub: { fontSize: 14.5, color: "#7a8499", margin: "0 0 18px", lineHeight: 1.5 },
-
-  pasteCard: { background: "#fff", border: "1px solid #d8deea", borderRadius: 14, padding: "18px 20px" },
-  field: { marginTop: 0 },
-  fieldLabel: { display: "block", fontSize: 12.5, fontWeight: 650, color: "#5a6479", marginBottom: 7 },
-  input: { width: "100%", border: "1px solid #d8deea", borderRadius: 11, padding: "11px 14px", fontSize: 14.5, fontFamily: "inherit", color: "#1a2238", background: "#fff" },
-  textarea: { width: "100%", border: "1px solid #d8deea", borderRadius: 11, padding: "12px 14px", fontSize: 14.5, fontFamily: "inherit", resize: "vertical", color: "#1a2238", lineHeight: 1.55 },
-
-  primaryBtn: { display: "inline-flex", alignItems: "center", gap: 8, background: "#2b3d6b", color: "#fff", border: "none", borderRadius: 11, padding: "11px 20px", fontSize: 14.5, fontWeight: 650, cursor: "pointer", boxShadow: "0 3px 10px rgba(43,61,107,0.25)" },
-  backBtn: { display: "inline-flex", alignItems: "center", gap: 5, background: "none", border: "none", color: "#5a6479", fontSize: 14, fontWeight: 600, cursor: "pointer", padding: "0 0 14px" },
-
-  errorBox: { display: "flex", alignItems: "center", gap: 8, background: "#fdeceb", color: "#b4271e", borderRadius: 10, padding: "11px 14px", fontSize: 13.5, marginTop: 12 },
-  successBox: { display: "flex", alignItems: "center", gap: 10, background: "#f4f8f5", border: "1px solid #d9ebe0", color: "#1b7a44", borderRadius: 12, padding: "12px 14px", fontSize: 14, fontWeight: 650, marginTop: 14 },
-
-  resultsHead: { fontSize: 13, color: "#7a8499", fontWeight: 600, marginBottom: 12, textTransform: "uppercase", letterSpacing: "0.04em" },
-  list: { display: "flex", flexDirection: "column", gap: 12 },
-  card: { textAlign: "left", background: "#fff", border: "1px solid #e6eaf2", borderRadius: 14, padding: "16px 18px", cursor: "pointer", transition: "all 0.16s ease", display: "block", width: "100%" },
-  cardTop: { display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: 12, marginBottom: 7 },
-  cardTitle: { fontWeight: 650, fontSize: 15.5, letterSpacing: "-0.01em" },
-  cardMeta: { display: "flex", gap: 8, marginBottom: 8, flexWrap: "wrap", alignItems: "center" },
-  metaTag: { display: "inline-flex", alignItems: "center", gap: 5, fontSize: 12, color: "#5a6479", background: "#f0f3f9", padding: "3px 9px", borderRadius: 7 },
-  metaTagFaint: { display: "inline-flex", alignItems: "center", gap: 4, fontSize: 11.5, color: "#9aa3b5", padding: "3px 4px" },
-  cardPreview: { margin: 0, fontSize: 13.5, color: "#6b7488", lineHeight: 1.5 },
-  pill: { display: "inline-flex", alignItems: "center", gap: 4, fontSize: 11.5, fontWeight: 650, padding: "4px 10px", borderRadius: 20, whiteSpace: "nowrap", flexShrink: 0 },
-
-  noMatch: { background: "#fff", border: "1px dashed #c9d2e3", borderRadius: 16, padding: "36px 24px", textAlign: "center", marginTop: 24 },
-  noMatchTitle: { fontWeight: 700, fontSize: 16, marginBottom: 6 },
-  noMatchText: { fontSize: 13.5, color: "#7a8499", maxWidth: 420, margin: "0 auto", lineHeight: 1.55 },
-  center: { display: "flex", alignItems: "center", justifyContent: "center", padding: "60px 0", color: "#2b3d6b" },
-  centerCol: { display: "flex", flexDirection: "column", alignItems: "center", gap: 10, padding: "60px 0", color: "#2b3d6b" },
-  centerHint: { fontSize: 13, color: "#9aa3b5", fontWeight: 600 },
-
-  dbHead: { display: "flex", alignItems: "baseline", gap: 12, marginBottom: 16 },
-  dbTitle: { fontSize: 24, fontWeight: 750, margin: 0, letterSpacing: "-0.02em" },
-  dbCount: { fontSize: 13, color: "#9aa3b5", fontWeight: 600 },
-  dbSearchBox: { display: "flex", alignItems: "center", gap: 10, background: "#fff", border: "1px solid #d8deea", borderRadius: 12, padding: "0 14px", height: 46, marginBottom: 16 },
-  dbSearchInput: { flex: 1, border: "none", outline: "none", fontSize: 14.5, background: "transparent", color: "#1a2238" },
-  clearBtn: { border: "none", background: "#eef1f7", borderRadius: 8, width: 28, height: 28, display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer", color: "#5a6479", flexShrink: 0 },
-  filterRow: { display: "flex", flexWrap: "wrap", gap: 8, marginBottom: 12 },
-  chip: { border: "1px solid #d8deea", background: "#fff", color: "#5a6479", borderRadius: 20, padding: "6px 14px", fontSize: 13, fontWeight: 600, cursor: "pointer", transition: "all 0.14s ease" },
-  chipActive: { background: "#2b3d6b", borderColor: "#2b3d6b", color: "#fff", boxShadow: "0 2px 8px rgba(43,61,107,0.25)" },
-
-  detailCard: { background: "#fff", border: "1px solid #e6eaf2", borderRadius: 16, padding: "26px 28px" },
-  detailHead: { display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: 14, marginBottom: 10 },
-  detailTitle: { fontSize: 21, fontWeight: 750, margin: 0, letterSpacing: "-0.02em", lineHeight: 1.3 },
-  detailMeta: { display: "flex", gap: 8, flexWrap: "wrap", marginBottom: 6, alignItems: "center" },
-  section: { marginTop: 22 },
-  sectionLabel: { fontSize: 11.5, fontWeight: 700, color: "#9aa3b5", textTransform: "uppercase", letterSpacing: "0.06em", marginBottom: 8 },
-  bodyTextMuted: { fontSize: 14, lineHeight: 1.6, margin: 0, color: "#7a8499" },
-  stepsList: { margin: 0, paddingLeft: 22, display: "flex", flexDirection: "column", gap: 8 },
-  stepItem: { fontSize: 14.5, lineHeight: 1.6, color: "#2a3346" },
-  summaryText: { margin: 0, fontSize: 13.5, lineHeight: 1.6, whiteSpace: "pre-wrap", fontFamily: "ui-monospace, 'SF Mono', Menlo, monospace", color: "#2a3346", background: "#fafbfe", border: "1px solid #e6ecf7", borderRadius: 9, padding: "12px 14px" },
-};
-
-const root = ReactDOM.createRoot(document.getElementById("root"));
-root.render(<App />);
-</script>
-
-<script>
-  function showFatal(msg) {
-    document.getElementById("root").innerHTML =
-      '<pre style="padding:24px;color:#b4271e;white-space:pre-wrap;font-family:ui-monospace,monospace;">' +
-      String(msg).replace(/</g, "&lt;") +
-      "</pre>";
-  }
-
-  function loadScript(src) {
-    return new Promise((resolve, reject) => {
-      const s = document.createElement("script");
-      s.src = src;
-      s.crossOrigin = "anonymous";
-      s.onload = () => resolve();
-      s.onerror = () => reject(new Error("Failed to load: " + src));
-      document.head.appendChild(s);
-    });
-  }
-
-  (async function boot() {
-    try {
-      await loadScript("https://unpkg.com/react@18/umd/react.production.min.js");
-      await loadScript("https://unpkg.com/react-dom@18/umd/react-dom.production.min.js");
-      await loadScript("https://unpkg.com/@babel/standalone/babel.min.js");
-      // lucide-react's UMD wrapper looks for a lowercase window.react global.
-      window.react = window.react || window.React;
-      await loadScript("https://unpkg.com/lucide-react@0.383.0/dist/umd/lucide-react.min.js");
-    } catch (err) {
-      showFatal("Couldn't load a required script.\n\n" + err.message + "\n\nIf this is happening inside Rewst App Builder, check whether unpkg.com is reachable from inside the Custom HTML component (it may be blocked by a content security policy).");
-      console.error(err);
-      return;
-    }
-
-    if (typeof React === "undefined" || typeof ReactDOM === "undefined" || typeof Babel === "undefined") {
-      showFatal("A required library didn't finish loading (React, ReactDOM, or Babel is missing after load).");
-      return;
-    }
-
-    const source = document.getElementById("app-source").textContent;
-    let compiled;
-    try {
-      compiled = Babel.transform(source, {
-        presets: [["react", { runtime: "classic" }]],
-      }).code;
-    } catch (err) {
-      showFatal("Failed to compile the app:\n\n" + err.message);
-      console.error("Babel compile error:", err);
-      return;
-    }
-
-    try {
-      const runner = document.createElement("script");
-      runner.textContent = compiled;
-      document.body.appendChild(runner);
-    } catch (err) {
-      showFatal("App crashed while starting:\n\n" + err.message);
-      console.error(err);
-    }
-  })();
-</script>
+  <footer>CBM IT</footer>
 </body>
 </html>
-{% endraw %}

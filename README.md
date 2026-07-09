@@ -11,36 +11,79 @@ scratch. A tech can:
 - **Browse** — page through everything in the knowledge base, filterable
   by company and ticket type.
 
-There is no traditional backend or database owned by this project. The
-"backend" is a set of **Rewst workflows** that do the AI work and read/write
-**IT Glue** (which is the actual system of record for the data). The
-**frontend is one static HTML file** with no build step, hosted on GitHub
-Pages. A small **Cloudflare Worker** sits in between the two, purely to get
-around browser cross-origin (CORS) restrictions that Rewst's response mode
-runs into.
+This repo actually serves **two pages**: a static landing page at the site
+root, and the Knowledge Base tool itself one level down at `kb/`. The
+landing page is the front door — `https://chaswheatley26.github.io/cbm-knowledge-base/` —
+with a "Welcome to CBM IT" banner and links out to CBM IT's internal tools:
+the Knowledge Base (same tab) and a separate Rewst-hosted "Ticket Alert
+Tool" (opens in a new tab, lives entirely outside this repo). If a third
+internal tool ever gets added, it's just another card on the landing page.
+
+There is no traditional backend or database owned by the Knowledge Base
+tool itself. Its "backend" is a set of **Rewst workflows** that do the AI
+work and read/write **IT Glue** (which is the actual system of record for
+the data). The **frontend is one static HTML file** with no build step,
+hosted on GitHub Pages. A small **Cloudflare Worker** sits in between the
+two, purely to get around browser cross-origin (CORS) restrictions that
+Rewst's response mode runs into.
 
 ```
+┌──────────────┐
+│   index.html │  landing page (static, this repo's root)
+│ "Welcome to  │──────┬───────────────────────────────────────────┐
+│   CBM IT"    │      │                                           │
+└──────────────┘      ▼                                           ▼
+                 ┌──────────────┐                          (external link,
+                 │  kb/index.html│                          new tab)
+                 │  Knowledge    │                          Rewst Ticket
+                 │  Base app     │                          Alert Tool form
+                 └──────┬───────┘
+                        │ POST
+                        ▼
 ┌──────────────┐        ┌────────────────────┐        ┌───────────────────┐        ┌──────────┐
 │   Browser    │  POST  │  Cloudflare Worker  │  POST  │  Rewst workflows   │  R/W   │ IT Glue  │
-│  index.html  │ ─────► │  cloudflare-worker  │ ─────► │  (4 webhooks,      │ ─────► │ (system  │
+│  kb/index.html│ ─────►│  cloudflare-worker  │ ─────► │  (4 webhooks,      │ ─────► │ (system  │
 │  (GitHub     │ ◄───── │  .js — CORS proxy   │ ◄───── │  AI parsing +      │ ◄───── │ of       │
 │  Pages)      │  JSON  │                     │  JSON  │  search logic)     │        │ record)  │
 └──────────────┘        └────────────────────┘        └───────────────────┘        └──────────┘
 ```
 
 Read on for how each piece actually works. For the blow-by-blow debugging
-history behind *why* the architecture ended up this shape (CORS dead ends,
-empty-response bugs, etc.), see [`CLAUDE.md`](../CLAUDE.md) in the parent
-folder — this README explains the current, working system; `CLAUDE.md` is
-the project's running lab notebook.
+history behind *why* the Knowledge Base architecture ended up this shape
+(CORS dead ends, empty-response bugs, etc.), see [`CLAUDE.md`](../CLAUDE.md)
+in the parent folder — this README explains the current, working system;
+`CLAUDE.md` is the project's running lab notebook.
 
 ---
 
-## 1. The frontend — `index.html`
+## 1. The landing page — `index.html` (repo root)
 
-The entire app is one self-contained HTML file. There's no `npm install`,
-no bundler, no `node_modules` — you can open it in a browser directly or
-just push it to GitHub Pages as-is.
+Plain static HTML/CSS, no React, no CDN dependencies, no build step — it's
+deliberately the simplest thing in this repo. It exists purely to give
+techs one home URL and a place to add more internal tools later without
+touching the Knowledge Base app itself. It reuses the same navy `#2b3d6b` /
+gold `#c9a938` palette as the Knowledge Base app (see "Design system" at
+the bottom of this README) so it reads as one product.
+
+Two cards, each a plain `<a>` styled as a clickable tile:
+
+- **CBM Knowledge Base** → links to `kb/` (relative path, same tab).
+- **Ticket Alert Tool** → links straight to the Rewst-hosted form
+  (`target="_blank" rel="noopener noreferrer"`, opens in a new tab since
+  it's a separate SaaS app the tech submits ticket numbers into, not part
+  of this codebase at all).
+
+Nothing here touches Rewst, IT Glue, or the Cloudflare Worker — adding a
+third tool is just adding a third card.
+
+---
+
+## 2. The Knowledge Base app — `kb/index.html`
+
+The entire app is one self-contained HTML file, served at
+`https://chaswheatley26.github.io/cbm-knowledge-base/kb/`. There's no
+`npm install`, no bundler, no `node_modules` — you can open it in a
+browser directly or just push it to GitHub Pages as-is.
 
 ### Why it's built this way
 
@@ -116,7 +159,7 @@ detail view, all client-side state (`useState`/`useEffect`), no router:
 | Detail | `DetailView` | Opened from a Search or Browse card → calls `getRecord` for full detail (steps, tags, error messages, affected systems). |
 
 All four network calls funnel through one function, `callProxyWebhook(action, body)`,
-which POSTs to the Cloudflare Worker (see §2) and does the response
+which POSTs to the Cloudflare Worker (see §3) and does the response
 handling: reads the raw text first (so a network-level empty response
 produces a clear error instead of a cryptic JSON-parse crash), then parses
 it as JSON, then unwraps whichever of `output`/`result`/`data`/`workflow_output`
@@ -141,14 +184,15 @@ Scheme (numbers, not dates, ordered as real numbers so `1.12 < 1.2`):
 
 ### Deploying the frontend
 
-There's no build step — GitHub Pages serves `index.html` directly.
-Committing and pushing to the branch GitHub Pages is configured against
-(this repo) is the entire deploy. Live at:
-**https://chaswheatley26.github.io/cbm-knowledge-base/**
+There's no build step — GitHub Pages serves `kb/index.html` directly (and
+the root `index.html` landing page alongside it). Committing and pushing
+to the branch GitHub Pages is configured against (this repo) is the entire
+deploy. Live at:
+**https://chaswheatley26.github.io/cbm-knowledge-base/kb/**
 
 ---
 
-## 2. The Cloudflare Worker proxy — `cloudflare-worker.js`
+## 3. The Cloudflare Worker proxy — `cloudflare-worker.js`
 
 ### The problem it solves
 
@@ -180,7 +224,7 @@ browser only ever talks to the Worker. Concretely:
    (or `submit` / `browse` / `getRecord`), with a JSON body.
 2. The Worker looks up `action` in its own `REWST_WEBHOOKS` map to get the
    real Rewst trigger URL (these raw URLs live **only** in this file now —
-   `index.html` has no knowledge of them).
+   `kb/index.html` has no knowledge of them).
 3. The Worker does a server-to-server `fetch()` to Rewst with
    `redirect: "follow"`. Server-to-server requests aren't subject to CORS
    at all, so following that `303` is completely safe here even though the
@@ -226,12 +270,12 @@ instead of straight to Rewst.
    `cloudflare-worker.js` and redeploy via the same paste-and-deploy flow.
 
 Current deployment: Worker name `cbm-kb-proxy`, URL
-`https://cbm-kb-proxy.chas-dea.workers.dev`, wired into `index.html` via
+`https://cbm-kb-proxy.chas-dea.workers.dev`, wired into `kb/index.html` via
 the `PROXY_URL` constant.
 
 ---
 
-## 3. The Rewst side (workflows + IT Glue)
+## 4. The Rewst side (workflows + IT Glue)
 
 Rewst is where all the actual "intelligence" and storage live — the
 frontend and Worker are both just plumbing around this. There are four
@@ -268,28 +312,31 @@ A few things worth knowing about this layer:
 
 ---
 
-## 4. Putting a change out end-to-end
+## 5. Putting a change out end-to-end
 
 Depending on what you're changing, here's what actually needs touching:
 
-- **UI/copy/frontend logic change:** edit `index.html`, bump `BUILD_TAG`,
-  commit and push. GitHub Pages picks it up automatically.
+- **KB app UI/copy/frontend logic change:** edit `kb/index.html`, bump
+  `BUILD_TAG`, commit and push. GitHub Pages picks it up automatically.
+- **Landing page change (copy, adding a third tool card, etc.):** edit the
+  root `index.html` directly — it's plain static HTML/CSS, no build tag to
+  bump.
 - **Changing what a Rewst workflow does** (AI prompt, IT Glue fields,
   search logic): all done inside Rewst itself — nothing in this repo
-  changes, unless the response shape changes, in which case `index.html`'s
-  parsing (`extractOutput`, `splitSteps`/`splitTags`, the field names read
-  off each record) needs to match.
+  changes, unless the response shape changes, in which case
+  `kb/index.html`'s parsing (`extractOutput`, `splitSteps`/`splitTags`, the
+  field names read off each record) needs to match.
 - **Adding a new webhook/action, or changing a Rewst trigger URL:** edit
-  `REWST_WEBHOOKS` in `cloudflare-worker.js`, redeploy the Worker (§2
-  steps), then wire the new `?action=` value up on the `index.html` side
+  `REWST_WEBHOOKS` in `cloudflare-worker.js`, redeploy the Worker (§3
+  steps), then wire the new `?action=` value up on the `kb/index.html` side
   (`callProxyWebhook("newAction", {...})`).
 - **Worker CORS misbehaving after a frontend URL change:** update
   `ALLOWED_ORIGIN` in `cloudflare-worker.js` to match wherever
-  `index.html` is actually served from, then redeploy.
+  `kb/index.html` is actually served from, then redeploy.
 
 ---
 
-## 5. Where to look when something breaks
+## 6. Where to look when something breaks
 
 - **Browser console** — `callProxyWebhook` logs `"Proxy response for
   {action} — status/raw"` on every single call. This is the fastest way
