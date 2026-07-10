@@ -85,7 +85,7 @@ const Sparkles = LR.Sparkles || NoIcon;
 // Bump this string every time a new version is shipped, so the visible
 // header text alone confirms whether the latest paste is actually live —
 // no devtools required.
-const BUILD_TAG = "1.1";
+const BUILD_TAG = "1.2";
 
 const PROXY_URL = "https://cbm-kb-proxy.chas-dea.workers.dev";
 
@@ -284,25 +284,53 @@ function SearchPage({ onOpenDetail }) {
 }
 
 /* ================================ SUBMIT ================================ */
+// Threshold for flagging a possible duplicate before saving. Matches the
+// "high confidence" tier already used for search relevance (see
+// ConfidenceBadge) so it only interrupts on likely-genuine duplicates, not
+// merely related tickets.
+const DUPLICATE_SCORE_THRESHOLD = 8;
+
 function SubmitPage() {
   const [raw, setRaw] = useState("");
   const [sourceId, setSourceId] = useState("");
   const [busy, setBusy] = useState(false);
+  const [busyLabel, setBusyLabel] = useState("");
   const [error, setError] = useState("");
   const [done, setDone] = useState(false);
+  const [duplicate, setDuplicate] = useState(null); // candidate record awaiting confirmation
 
-  async function run() {
-    if (!raw.trim() || busy) return;
-    setBusy(true); setError(""); setDone(false);
+  async function doSave() {
+    setBusy(true); setBusyLabel("Saving to IT Glue… (up to 30s)"); setError("");
     try {
       await submitTicket(raw.trim(), sourceId.trim());
       setDone(true);
-      setRaw(""); setSourceId("");
+      setRaw(""); setSourceId(""); setDuplicate(null);
     } catch (e) {
       setError("Couldn't save this ticket: " + (e && e.message ? e.message : "unknown error"));
     }
     setBusy(false);
   }
+
+  async function run() {
+    if (!raw.trim() || busy) return;
+    setError(""); setDone(false); setDuplicate(null);
+    setBusy(true); setBusyLabel("Checking for existing entries…");
+    let candidates = [];
+    try {
+      candidates = await searchTickets(raw.trim());
+    } catch (e) {
+      candidates = []; // a broken duplicate-check should never block a real submission
+    }
+    const top = candidates && candidates[0];
+    if (top && typeof top.relevance_score === "number" && top.relevance_score >= DUPLICATE_SCORE_THRESHOLD) {
+      setBusy(false);
+      setDuplicate(top);
+      return;
+    }
+    await doSave();
+  }
+
+  const dupSteps = duplicate ? splitSteps(duplicate.resolution_steps) : [];
 
   return (
     <div style={styles.heroWrap}>
@@ -311,7 +339,7 @@ function SubmitPage() {
 
       <div style={styles.pasteCard}>
         <Field label="Ticket # (optional)">
-          <input style={styles.input} value={sourceId} onChange={(e) => setSourceId(e.target.value)} placeholder="e.g. T20260703.0023" />
+          <input style={styles.input} value={sourceId} onChange={(e) => setSourceId(e.target.value)} placeholder="e.g. T20260703.0023" disabled={busy || !!duplicate} />
         </Field>
         <div style={{ marginTop: 16 }}>
           <label style={styles.fieldLabel}>Raw ticket text</label>
@@ -321,6 +349,7 @@ function SubmitPage() {
             value={raw}
             onChange={(e) => setRaw(e.target.value)}
             placeholder="Paste the full ticket text here…"
+            disabled={busy || !!duplicate}
           />
         </div>
 
@@ -331,13 +360,43 @@ function SubmitPage() {
           </div>
         )}
 
-        <button
-          style={{ ...styles.primaryBtn, marginTop: 14, opacity: raw.trim() && !busy ? 1 : 0.5, cursor: raw.trim() && !busy ? "pointer" : "not-allowed" }}
-          onClick={run}
-          disabled={!raw.trim() || busy}
-        >
-          {busy ? <><Loader2 size={16} className="spin" /> Saving to IT Glue… (up to 30s)</> : <><Sparkles size={16} /> Parse &amp; save</>}
-        </button>
+        {duplicate && (
+          <div style={styles.dupWarning}>
+            <div style={styles.dupWarningHead}><AlertCircle size={15} /> This looks similar to an existing entry</div>
+            <div style={styles.card}>
+              <div style={styles.cardTop}>
+                <span style={styles.cardTitle}>{duplicate.problem_summary}</span>
+                <ConfidenceBadge score={duplicate.relevance_score} />
+              </div>
+              <div style={styles.cardMeta}>
+                {duplicate.company && <span style={styles.metaTag}><Building2 size={12} /> {duplicate.company}</span>}
+                {duplicate.ticket_type && <span style={styles.metaTag}><Tag size={12} /> {duplicate.ticket_type}</span>}
+              </div>
+              {duplicate.relevance_reason && <p style={styles.cardPreview}>{duplicate.relevance_reason}</p>}
+              {dupSteps.length > 0 && (
+                <ol style={{ ...styles.stepsList, marginTop: 10 }}>
+                  {dupSteps.map((s, i) => <li key={i} style={styles.stepItem}>{s}</li>)}
+                </ol>
+              )}
+            </div>
+            <div style={styles.dupActions}>
+              <button style={styles.secondaryBtn} onClick={() => setDuplicate(null)}>Cancel</button>
+              <button style={styles.primaryBtn} onClick={doSave}>
+                <Sparkles size={16} /> Submit anyway
+              </button>
+            </div>
+          </div>
+        )}
+
+        {!duplicate && (
+          <button
+            style={{ ...styles.primaryBtn, marginTop: 14, opacity: raw.trim() && !busy ? 1 : 0.5, cursor: raw.trim() && !busy ? "pointer" : "not-allowed" }}
+            onClick={run}
+            disabled={!raw.trim() || busy}
+          >
+            {busy ? <><Loader2 size={16} className="spin" /> {busyLabel}</> : <><Sparkles size={16} /> Parse &amp; save</>}
+          </button>
+        )}
       </div>
     </div>
   );
@@ -588,7 +647,12 @@ const styles = {
   textarea: { width: "100%", border: "1px solid #d8deea", borderRadius: 11, padding: "12px 14px", fontSize: 14.5, fontFamily: "inherit", resize: "vertical", color: "#1a2238", lineHeight: 1.55 },
 
   primaryBtn: { display: "inline-flex", alignItems: "center", gap: 8, background: "#2b3d6b", color: "#fff", border: "none", borderRadius: 11, padding: "11px 20px", fontSize: 14.5, fontWeight: 650, cursor: "pointer", boxShadow: "0 3px 10px rgba(43,61,107,0.25)" },
+  secondaryBtn: { display: "inline-flex", alignItems: "center", gap: 8, background: "#fff", color: "#5a6479", border: "1px solid #d8deea", borderRadius: 11, padding: "11px 20px", fontSize: 14.5, fontWeight: 650, cursor: "pointer" },
   backBtn: { display: "inline-flex", alignItems: "center", gap: 5, background: "none", border: "none", color: "#5a6479", fontSize: 14, fontWeight: 600, cursor: "pointer", padding: "0 0 14px" },
+
+  dupWarning: { marginTop: 16, background: "#fdf6e9", border: "1px solid #f0dfae", borderRadius: 14, padding: "16px" },
+  dupWarningHead: { display: "flex", alignItems: "center", gap: 8, fontSize: 13.5, fontWeight: 650, color: "#a85a16", marginBottom: 12 },
+  dupActions: { display: "flex", justifyContent: "flex-end", gap: 10, marginTop: 14 },
 
   errorBox: { display: "flex", alignItems: "center", gap: 8, background: "#fdeceb", color: "#b4271e", borderRadius: 10, padding: "11px 14px", fontSize: 13.5, marginTop: 12 },
   successBox: { display: "flex", alignItems: "center", gap: 10, background: "#f4f8f5", border: "1px solid #d9ebe0", color: "#1b7a44", borderRadius: 12, padding: "12px 14px", fontSize: 14, fontWeight: 650, marginTop: 14 },
