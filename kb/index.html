@@ -66,6 +66,7 @@ const ChevronLeft = LR.ChevronLeft || NoIcon;
 const Building2 = LR.Building2 || NoIcon;
 const Sparkles = LR.Sparkles || NoIcon;
 const ExternalLink = LR.ExternalLink || NoIcon;
+const Copy = LR.Copy || NoIcon;
 
 /* =========================================================================
    REWST WEBHOOKS — all 4 calls now go through a Cloudflare Worker proxy
@@ -86,7 +87,7 @@ const ExternalLink = LR.ExternalLink || NoIcon;
 // Bump this string every time a new version is shipped, so the visible
 // header text alone confirms whether the latest paste is actually live —
 // no devtools required.
-const BUILD_TAG = "1.21";
+const BUILD_TAG = "1.22";
 
 const PROXY_URL = "https://cbm-kb-proxy.chas-dea.workers.dev";
 
@@ -206,8 +207,33 @@ function ConfidenceBadge({ score }) {
   return <span style={{ ...styles.pill, background: c.bg, color: c.fg }}>{num}/10 match</span>;
 }
 
-function Section({ label, children }) {
-  return <div style={styles.section}><div style={styles.sectionLabel}>{label}</div>{children}</div>;
+function Section({ label, action, children }) {
+  return (
+    <div style={styles.section}>
+      <div style={styles.sectionLabelRow}>
+        <div style={styles.sectionLabel}>{label}</div>
+        {action}
+      </div>
+      {children}
+    </div>
+  );
+}
+function CopyButton({ text }) {
+  const [copied, setCopied] = useState(false);
+  async function copy() {
+    try {
+      await navigator.clipboard.writeText(text);
+    } catch (e) {
+      return; // clipboard permission denied or unavailable — fail silently
+    }
+    setCopied(true);
+    setTimeout(() => setCopied(false), 1800);
+  }
+  return (
+    <button style={styles.copyBtn} onClick={copy}>
+      {copied ? <><CheckCircle2 size={13} /> Copied</> : <><Copy size={13} /> Copy</>}
+    </button>
+  );
 }
 function Field({ label, children }) {
   return <div style={styles.field}><label style={styles.fieldLabel}>{label}</label>{children}</div>;
@@ -555,7 +581,10 @@ function DetailView({ id, onBack }) {
             {record.source_ticket_id && <span style={styles.metaTagFaint}><HashIcon size={11} /> {record.source_ticket_id}</span>}
           </div>
 
-          <Section label="Resolution steps">
+          <Section
+            label="Resolution steps"
+            action={steps.length > 0 && <CopyButton text={steps.map((s, i) => `${i + 1}. ${s}`).join("\n")} />}
+          >
             {steps.length > 0 ? (
               <ol style={styles.stepsList}>
                 {steps.map((s, i) => <li key={i} style={styles.stepItem}>{s}</li>)}
@@ -707,7 +736,9 @@ const styles = {
   itglueLink: { display: "inline-flex", alignItems: "center", gap: 5, fontSize: 12.5, fontWeight: 650, color: "#5a6479", background: "#f0f3f9", padding: "6px 12px", borderRadius: 8, textDecoration: "none", whiteSpace: "nowrap", flexShrink: 0 },
   detailMeta: { display: "flex", gap: 8, flexWrap: "wrap", marginBottom: 6, alignItems: "center" },
   section: { marginTop: 22 },
-  sectionLabel: { fontSize: 11.5, fontWeight: 700, color: "#9aa3b5", textTransform: "uppercase", letterSpacing: "0.06em", marginBottom: 8 },
+  sectionLabelRow: { display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10, marginBottom: 8 },
+  sectionLabel: { fontSize: 11.5, fontWeight: 700, color: "#9aa3b5", textTransform: "uppercase", letterSpacing: "0.06em" },
+  copyBtn: { display: "inline-flex", alignItems: "center", gap: 5, fontSize: 12, fontWeight: 650, color: "#5a6479", background: "#f0f3f9", border: "none", padding: "5px 10px", borderRadius: 7, cursor: "pointer" },
   bodyTextMuted: { fontSize: 14, lineHeight: 1.6, margin: 0, color: "#7a8499" },
   stepsList: { margin: 0, paddingLeft: 22, display: "flex", flexDirection: "column", gap: 8 },
   stepItem: { fontSize: 14.5, lineHeight: 1.6, color: "#2a3346" },
