@@ -121,6 +121,27 @@
   }
   .card.gold .cardFoot { color: #a4832a; }
 
+  .cardHead {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 10px;
+  }
+  .pilotBadge {
+    display: inline-flex;
+    align-items: center;
+    flex-shrink: 0;
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: 0.03em;
+    text-transform: uppercase;
+    color: #a85a16;
+    background: #fdf0e3;
+    padding: 3px 9px;
+    border-radius: 20px;
+    white-space: nowrap;
+  }
+
   footer {
     text-align: center;
     padding: 20px 24px 28px;
@@ -176,8 +197,11 @@
             <path d="m9 12 2 2 4-4"></path>
           </svg>
         </div>
-        <h2 class="cardTitle">Link &amp; Email Triage</h2>
-        <p class="cardDesc">Paste a suspicious link or a full email to get a fast, evidence-backed verdict — benign, suspicious, or malicious.</p>
+        <div class="cardHead">
+          <h2 class="cardTitle">Link &amp; Email Triage</h2>
+          <span class="pilotBadge">Pilot</span>
+        </div>
+        <p class="cardDesc">Paste a suspicious link or a full email to get a fast, evidence-backed verdict — benign, suspicious, or malicious. Still in progress — expect rough edges.</p>
         <span class="cardFoot">Open tool →</span>
       </a>
     </div>
