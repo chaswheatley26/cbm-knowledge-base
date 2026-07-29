@@ -1,33 +1,27 @@
 import { useState } from "react";
-import { History } from "lucide-react";
 import styles from "./styles.js";
 import CbmMark from "./components/CbmMark.jsx";
 import SubmissionForm from "./components/SubmissionForm.jsx";
 import ResultsView from "./components/ResultsView.jsx";
-import HistoryTable from "./components/HistoryTable.jsx";
-import { submitTriage } from "./lib/api.js";
+import { triage } from "./lib/api.js";
 
-// Screens: "submit" (form) -> "results" (polling view for one request_id),
-// plus a standalone "history" tab. Not a router — this is a single-purpose
-// internal tool, plain useState is enough.
+// Screens: "submit" (form, stays mounted through the ~30s wait so a failed
+// request doesn't lose what the tech typed) -> "results" (the verdict).
+// No history tab and nothing keyed by request_id — there's no
+// persistence layer, so there's nothing to poll for or list.
 export default function App() {
   const [screen, setScreen] = useState("submit");
-  const [activeRequestId, setActiveRequestId] = useState(null);
+  const [verdict, setVerdict] = useState(null);
 
   async function handleSubmit(payload) {
-    const requestId = await submitTriage(payload);
-    setActiveRequestId(requestId);
-    setScreen("results");
-  }
-
-  function openResult(requestId) {
-    setActiveRequestId(requestId);
+    const result = await triage(payload);
+    setVerdict(result);
     setScreen("results");
   }
 
   function backToSubmit() {
     setScreen("submit");
-    setActiveRequestId(null);
+    setVerdict(null);
   }
 
   return (
@@ -43,32 +37,11 @@ export default function App() {
               <div style={styles.brandSub}>Link &amp; Email Triage</div>
             </div>
           </div>
-          <div style={styles.navTabs}>
-            <button
-              style={{ ...styles.navTab, ...(screen === "submit" || screen === "results" ? styles.navTabActive : {}) }}
-              onClick={backToSubmit}
-            >
-              Check something
-            </button>
-            <button
-              style={{ ...styles.navTab, ...(screen === "history" ? styles.navTabActive : {}) }}
-              onClick={() => setScreen("history")}
-            >
-              <History size={14} /> History
-            </button>
-          </div>
         </div>
       </header>
       <main style={styles.main}>
         {screen === "submit" && <SubmissionForm onSubmit={handleSubmit} />}
-        {screen === "results" && activeRequestId && <ResultsView requestId={activeRequestId} onBack={backToSubmit} />}
-        {screen === "history" && (
-          <div style={styles.heroWrap}>
-            <h1 style={styles.heroTitle}>History</h1>
-            <p style={styles.heroSub}>Past submissions and their verdicts.</p>
-            <HistoryTable onOpenResult={openResult} />
-          </div>
-        )}
+        {screen === "results" && verdict && <ResultsView verdict={verdict} onBack={backToSubmit} />}
       </main>
     </div>
   );

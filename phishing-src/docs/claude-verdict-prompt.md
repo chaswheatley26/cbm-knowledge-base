@@ -1,9 +1,13 @@
 # Claude Verdict System Prompt
 
-Used by the `submit-url` Rewst workflow's AI step (see
-`rewst-webhook-contracts.md` step 3). Paste as the system prompt; feed the
-assembled evidence JSON (per-URL enrichment + raw email text/`email_signals`
-when applicable) as the user message.
+Used by the `triage` Rewst workflow's AI step (see
+`rewst-webhook-contracts.md` step 3 — this is the single synchronous
+workflow, not a `submit-url`/`check-status` pair; that 3-webhook design was
+dropped once persistence turned out not to be needed). Paste as the system
+prompt; feed the assembled evidence JSON (per-URL enrichment + raw email
+text/`email_signals` when applicable) as the user message. The resulting
+JSON becomes the inner object of the trigger's final `{ "verdict": {...} }`
+response.
 
 ## System prompt
 

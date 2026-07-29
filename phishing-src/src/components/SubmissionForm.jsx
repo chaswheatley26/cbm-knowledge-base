@@ -61,15 +61,16 @@ export default function SubmissionForm({ onSubmit }) {
             {error}
           </div>
         ) : null}
-        <div style={{ marginTop: 16 }}>
+        <div style={{ marginTop: 16, display: "flex", alignItems: "center", gap: 14 }}>
           <button
             type="submit"
             style={{ ...styles.primaryBtn, ...(busy || !submittedInput.trim() ? styles.primaryBtnDisabled : {}) }}
             disabled={busy || !submittedInput.trim()}
           >
             {busy ? <Loader2 size={16} style={styles.spinIcon} /> : <Send size={16} />}
-            {busy ? "Submitting…" : "Check it"}
+            {busy ? "Checking…" : "Check it"}
           </button>
+          {busy ? <span style={styles.centerHint}>Can take up to 30s for a full URLScan sandbox scan</span> : null}
         </div>
       </div>
     </form>

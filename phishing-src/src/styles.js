@@ -8,9 +8,6 @@ const styles = {
   logoMark: { width: 40, height: 40, borderRadius: 11, background: "#fff", border: "1px solid #e6eaf2", display: "flex", alignItems: "center", justifyContent: "center", boxShadow: "0 2px 6px rgba(20,30,60,0.08)" },
   brandName: { fontWeight: 700, fontSize: 17, letterSpacing: "-0.01em" },
   brandSub: { fontSize: 12.5, color: "#7a8499" },
-  navTabs: { display: "flex", gap: 4, background: "#f5f7fb", borderRadius: 12, padding: 4 },
-  navTab: { display: "inline-flex", alignItems: "center", gap: 6, background: "none", border: "none", borderRadius: 9, padding: "8px 14px", fontSize: 13.5, fontWeight: 650, color: "#5a6479", cursor: "pointer" },
-  navTabActive: { background: "#fff", color: "#2b3d6b", boxShadow: "0 1px 4px rgba(20,30,60,0.08)" },
   main: { maxWidth: 880, margin: "0 auto", padding: "28px 24px 60px", width: "100%", flex: 1 },
 
   heroWrap: { maxWidth: 680, margin: "0 auto" },
@@ -60,11 +57,6 @@ const styles = {
   stepItem: { fontSize: 14.5, lineHeight: 1.6, color: "#2a3346" },
   summaryText: { margin: 0, fontSize: 13.5, lineHeight: 1.6, whiteSpace: "pre-wrap", fontFamily: "ui-monospace, 'SF Mono', Menlo, monospace", color: "#2a3346", background: "#fafbfe", border: "1px solid #e6ecf7", borderRadius: 9, padding: "12px 14px" },
   screenshot: { width: "100%", borderRadius: 10, border: "1px solid #e6eaf2", display: "block" },
-
-  table: { width: "100%", borderCollapse: "collapse" },
-  th: { textAlign: "left", fontSize: 11.5, fontWeight: 700, color: "#9aa3b5", textTransform: "uppercase", letterSpacing: "0.06em", padding: "10px 12px", borderBottom: "1px solid #e6eaf2" },
-  td: { padding: "12px 12px", fontSize: 14, color: "#1a2238", borderBottom: "1px solid #eef1f7" },
-  rowClickable: { cursor: "pointer" },
 
   spinIcon: { animation: "spin 0.9s linear infinite" },
 };
