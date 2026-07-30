@@ -72,13 +72,21 @@ the KB tool's worker keeping its real Rewst URLs only in that file):
 https://engine.rewst.io/webhooks/custom/trigger/019faeee-f48e-73dd-9355-b5953c2cdd1f/01976967-f419-7877-9ff8-e4db81c148a6
 ```
 
-**Response contract:** the workflow returns `{ "verdict": { ... } }`, where
-the inner object matches the schema in `docs/claude-verdict-prompt.md` plus
-the `urls`/`email_signals` evidence fields — see
+**Response contract:** confirmed live (2026-07-29) — the workflow returns
+everything nested under `final_response`, with the AI verdict schema
+(`verdict`/`confidence`/`reasoning`/`recommended_action`) nested one level
+further under its own `verdict` key inside that. See
 `docs/rewst-webhook-contracts.md` for the exact shape. `src/lib/api.js`'s
-`triage()` reads `data.verdict` directly; there is no `status: "pending"`
-state to handle anymore since the call doesn't return until the workflow is
-actually done.
+`triage()` flattens this into one object before returning it — that
+flattening is frontend-side by design; don't restructure Rewst's actual
+output trying to match a flatter shape, just keep the doc in sync with
+whatever Rewst really returns. There is no `status: "pending"` state to
+handle since the call doesn't return until the workflow is actually done.
+Also note: `safe_browsing.summary` has been observed coming back as a
+nested object rather than a plain string like the other three sources —
+`ResultsView.jsx`'s `SourceRow` defensively stringifies non-string
+`summary` values so this can't crash rendering, but it'd be worth
+flattening on the Rewst side too if easy.
 
 ## Single-input design (decided before any code existed)
 

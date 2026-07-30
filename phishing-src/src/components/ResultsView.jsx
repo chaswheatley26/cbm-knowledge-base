@@ -17,9 +17,15 @@ function SourceRow({ label, source }) {
       </div>
     );
   }
+  // Some enrichment sources have been observed returning a nested object
+  // for `summary` instead of a plain string (e.g. Safe Browsing wrapping
+  // its own {status, summary}) — stringify anything that isn't already a
+  // string so this never throws "Objects are not valid as a React child".
+  const summaryText =
+    typeof source.summary === "string" ? source.summary : source.summary ? JSON.stringify(source.summary) : JSON.stringify(source);
   return (
     <div style={styles.metaTag}>
-      <strong>{label}:</strong>&nbsp;{source.summary || JSON.stringify(source)}
+      <strong>{label}:</strong>&nbsp;{summaryText}
     </div>
   );
 }

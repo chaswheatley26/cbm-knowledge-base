@@ -28,6 +28,17 @@ export async function triage({ submittedInput, submitter, clientTenant }) {
   } catch (e) {
     throw new Error("The proxy response wasn't valid JSON: " + rawText.slice(0, 200));
   }
-  if (!data || !data.verdict) throw new Error("The response was missing a verdict.");
-  return data.verdict;
+  // Rewst nests everything under "final_response", with the AI verdict
+  // schema (verdict/confidence/reasoning/recommended_action) one level
+  // deeper as its own "verdict" key — flatten that here so downstream
+  // components (ResultsView, VerdictBadge) can just read verdict.verdict,
+  // verdict.confidence, verdict.urls, etc. off one object.
+  const fr = data && data.final_response;
+  if (!fr || !fr.verdict) throw new Error("The response was missing a verdict.");
+  return {
+    ...fr.verdict,
+    input_type: fr.input_type,
+    urls: fr.urls,
+    email_signals: fr.email_signals,
+  };
 }

@@ -67,15 +67,14 @@ ticket; `suspicious` → internal Autotask note only. (No submission log —
 there's no persistence layer; if per-submission logging is wanted later for
 false-positive tuning, that's a Rewst-side addition, not a frontend one.)
 
-**Step 5 — return the final response** (this is what the frontend's
-`triage()` call receives directly, wrapped once, synchronously):
+**Step 5 — return the final response.** Confirmed live shape (as actually
+returned, 2026-07-29 — this is what's really wired up, not an assumption):
+everything is nested one level under a top-level `final_response` key, with
+the AI verdict schema itself nested one level further under its own
+`verdict` key:
 ```json
 {
-  "verdict": {
-    "verdict": "benign | suspicious | malicious | insufficient_data",
-    "confidence": 0,
-    "reasoning": "string",
-    "recommended_action": "string",
+  "final_response": {
     "input_type": "url | email",
     "urls": [
       {
@@ -92,11 +91,30 @@ false-positive tuning, that's a Rewst-side addition, not a frontend one.)
       "reply_to_mismatch": true,
       "urgency_language_detected": true,
       "notes": "string"
+    },
+    "verdict": {
+      "verdict": "benign | suspicious | malicious | insufficient_data",
+      "confidence": 0,
+      "reasoning": "string",
+      "recommended_action": "string"
     }
   }
 }
 ```
 `email_signals` is present only when `input_type` is `"email"`.
+`src/lib/api.js`'s `triage()` flattens this nesting into one object
+(`{ verdict, confidence, reasoning, recommended_action, input_type, urls,
+email_signals }`) before handing it to the UI — that flattening lives in the
+frontend, not in Rewst; don't restructure Rewst's output to try to match the
+flat shape, just keep this doc in sync with whatever Rewst actually returns.
+
+**Known quirk (observed live):** `safe_browsing.summary` has come back as a
+*nested object* (`{ "status": "ok", "summary": "No threats detected" }`)
+instead of a plain string like the other three sources. The frontend
+defensively stringifies non-string `summary` values so this doesn't crash
+rendering, but if this is easy to flatten to a plain string on the Rewst
+side, that'd match the other three sources and remove the need for that
+defensive handling.
 
 ---
 
