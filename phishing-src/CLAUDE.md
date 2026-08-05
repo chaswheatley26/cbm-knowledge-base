@@ -134,17 +134,23 @@ live in the email itself.
 
 ## What's NOT done yet
 
-- **Deploy the updated Worker** — paste the new two-action
-  `cloudflare-worker.js` into the existing `cbm-phishing-proxy` Worker on
-  Cloudflare and **Deploy** (not just Save).
-- **Test end-to-end** (browser → Worker → `triage` → poll → `get_result` →
-  back) with a real known-benign URL through the actual live page — this
-  has NOT been retested since the async rebuild; the "missing a verdict" /
-  Safe Browsing nesting bugs were caught and fixed on the prior synchronous
-  version, not this one. Confirm the response really does arrive wrapped
-  the way `docs/rewst-webhook-contracts.md` currently documents (see its
-  note on this) before trusting it, then pull the landing page's "Pilot"
-  badge.
+- **Blocking bug, Rewst-side (see History #9):** the `triage` workflow's
+  `enrich_urls` task consistently fails on its `cbm_phishing_enrich_single_url`
+  sub-workflow right after the `vt_lookup_2` (VirusTotal) step, with no task
+  ID attached to the failure — the engine appears to be killing the
+  sub-workflow's container rather than failing one task normally. Because
+  of this, `store_result` is never reached and `get_result` has nothing to
+  ever return — confirmed via three separate submit+poll tests against the
+  Worker directly (bypassing the frontend entirely), all three stuck at
+  `{"status":"pending"}` for the full ~3-minute window. This has to be
+  fixed in Rewst before anything past this point can be verified.
+- **Once that's fixed — retest end-to-end** (browser → Worker → `triage` →
+  poll → `get_result` → back) through the actual live page. The response
+  shape at that point is still unconfirmed for this async version — don't
+  assume `docs/rewst-webhook-contracts.md`'s documented `get_result` shape
+  is correct yet; it's a best guess pending an actual completed run (see
+  that doc's own note on this). Once confirmed, pull the landing page's
+  "Pilot" badge.
 - **Licensing check before real client use** — VirusTotal's and Google Safe
   Browsing's free tiers are non-commercial-use only; CBM is an MSP serving
   paying clients, which is commercial use. Confirm or upgrade before this
@@ -243,3 +249,24 @@ which was ported directly from it (not re-derived):
    lives in `ResultsView`'s polling screen). Verified the rebuild builds
    cleanly with `npm run build`. Still pending: deploying the updated
    Worker and a fresh end-to-end test (see "What's NOT done yet" above).
+9. Deployed the two-action Worker to `cbm-phishing-proxy`, confirmed via a
+   plain GET (`405 {"error":"Method not allowed"}`). Ran three separate
+   `submit` → poll-every-12s-for-~3min tests directly against the Worker
+   (bypassing the frontend) — all three stayed `{"status":"pending"}` for
+   the entire window, never completing. Traced with the user directly in
+   Rewst's execution logs: `triage` DOES run (confirmed execution
+   `019fce54-1e0d-7f02-87fd-4e705293cb31` for one test's request_id) but
+   errors every time at the `enrich_urls` task
+   (`019faeedcb4371038392559616ca057d`) — specifically, the sub-workflow
+   `cbm_phishing_enrich_single_url` dies immediately after its `vt_lookup_2`
+   step (VirusTotal) succeeds, returning an empty `{}` and killing the
+   parent `enrich_urls` task. No task ID is attached to the failure — the
+   engine is killing the sub-workflow's container outright, not failing one
+   task normally. `store_result` is never reached, which is why `get_result`
+   correctly reports "pending" forever — there's nothing wrong with the
+   Worker/polling code, there's just never anything to find. This is now
+   purely a Rewst-side sub-workflow bug to diagnose (likely candidates:
+   oversized VT response tripping a memory ceiling, an unhandled exception
+   in whatever step reads `vt_lookup_2`'s output assuming a shape it didn't
+   get, or a sub-workflow-level timeout) — nothing actionable on the
+   frontend/Worker side until `enrich_urls` actually completes.
