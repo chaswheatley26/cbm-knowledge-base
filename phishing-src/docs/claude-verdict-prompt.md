@@ -1,12 +1,13 @@
 # Claude Verdict System Prompt
 
 Used by the `triage` Rewst workflow's AI step (see
-`rewst-webhook-contracts.md` step 3 — this is the single synchronous
-workflow, not a `submit-url`/`check-status` pair; that 3-webhook design was
-dropped once persistence turned out not to be needed). Paste as the system
-prompt; feed the assembled evidence JSON (per-URL enrichment + raw email
-text/`email_signals` when applicable) as the user message. The resulting
-JSON becomes the inner object of the trigger's final `{ "verdict": {...} }`
+`rewst-webhook-contracts.md` §1 step 3). `triage` fires fire-and-forget and
+stores its result for the separate `get_result` workflow to return once
+ready — see `rewst-webhook-contracts.md` for the current async two-webhook
+design. Paste this as the system prompt; feed the assembled evidence JSON
+(per-URL enrichment + raw email text/`email_signals` when applicable) as
+the user message. The resulting JSON becomes the `verdict` object nested
+inside `get_result`'s final `{ "status": "complete", "result": {...} }`
 response.
 
 ## System prompt

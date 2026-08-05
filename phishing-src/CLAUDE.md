@@ -21,9 +21,8 @@ of it works.
 
 See `../../phishing-triage-tool-spec.md` (CBM IT Website root, one level
 above this repo) for the original product spec — several of its details
-(notably the 3-webhook async design) have since been superseded by the
-simplification below; where they conflict, this file and the docs it points
-to are current.
+have since been superseded (twice — see "Async + poll" section below);
+where they conflict, this file and the docs it points to are current.
 
 ## Architecture
 
@@ -43,50 +42,62 @@ to are current.
   (`cloudflare-worker.js`, deployed separately as `cbm-phishing-proxy`) —
   `src/lib/api.js` only ever talks to `PROXY_URL`, never to Rewst directly.
 
-## Single webhook, fully synchronous, no persistence (simplified 2026-07-29)
+## Async + poll, two webhooks, no persisted history (current, 2026-07-29 — second revision)
 
-**This replaces the original 3-webhook async+polling design** (`submit-url` /
-`check-status` / `list-history`, described in the product spec and in this
-tool's own earlier history). The user's actual requirement turned out to be
-simpler than what was originally scoped: *"There is no data that needs to be
-stored. I just want it to use the 3 api keys and tools then give a report if
-its safe or not."* No persistence means nothing to poll for and nothing to
-list, so the whole async/history apparatus was unnecessary complexity — it's
-been removed, not just left dormant. If history or async processing is ever
-wanted later, build that back in then, not preemptively.
+This design has gone through two revisions since the original spec:
 
-**Current shape:** one Rewst workflow, one webhook trigger, called with
-`wait_for_results: true` — the same proven-reliable pattern the KB tool
-uses for all its calls (see KB tool's `CLAUDE.md` History #7/#11-13/#17 for
-why `wait_for_results:false` async acks are unreliable and best avoided
-entirely rather than worked around). The trigger blocks while the workflow
-classifies the input, runs enrichment, gets a Claude verdict, and returns the
-finished result in one response — up to ~30s for a full URLScan sandbox
-scan. `cloudflare-worker.js` is a single-endpoint proxy: POST body in, follow
-Rewst's 303 redirect server-to-server (not subject to CORS), hand the final
-JSON straight back. No `request_id`, no `action` routing, no fire-and-forget.
+1. **Original spec:** 3 webhooks (`submit-url`/`check-status`/`list-history`),
+   async + polling, backed by persisted/browsable submission history.
+2. **First simplification:** the user's actual requirement turned out not to
+   need persistence at all — *"There is no data that needs to be stored. I
+   just want it to use the 3 api keys and tools then give a report if its
+   safe or not."* Collapsed to **one** synchronous `wait_for_results:true`
+   webhook, no polling, no history tab.
+3. **Current (this section):** the fully-synchronous design hit real timing
+   risk — the full enrichment chain (VirusTotal/URLScan/Safe Browsing/RDAP +
+   a Claude verdict call) runs 60-90s in the happy path, too long to reliably
+   hold one HTTP request open end-to-end. Rewst rebuilt this as **two**
+   webhooks: `triage` (kicks off the work, returns fast) and `get_result`
+   (looks up the result once ready). This is **not** a return to revision
+   1's design — there's still no persisted/browsable history, just a
+   short-lived per-request lookup that gets deleted once read.
 
-**Live webhook URL** (hardcoded in `cloudflare-worker.js`, same convention as
-the KB tool's worker keeping its real Rewst URLs only in that file):
+**Live webhook URLs** (hardcoded in `cloudflare-worker.js`, same convention
+as the KB tool's worker keeping its real Rewst URLs only in that file):
 ```
-https://engine.rewst.io/webhooks/custom/trigger/019faeee-f48e-73dd-9355-b5953c2cdd1f/01976967-f419-7877-9ff8-e4db81c148a6
+triage:     https://engine.rewst.io/webhooks/custom/trigger/019faeee-f48e-73dd-9355-b5953c2cdd1f/01976967-f419-7877-9ff8-e4db81c148a6
+get_result: https://engine.rewst.io/webhooks/custom/trigger/019fb4de-6471-7f46-ac65-5941e33a5935/01976967-f419-7877-9ff8-e4db81c148a6
 ```
 
-**Response contract:** confirmed live (2026-07-29) — the workflow returns
-everything nested under `final_response`, with the AI verdict schema
-(`verdict`/`confidence`/`reasoning`/`recommended_action`) nested one level
-further under its own `verdict` key inside that. See
-`docs/rewst-webhook-contracts.md` for the exact shape. `src/lib/api.js`'s
-`triage()` flattens this into one object before returning it — that
-flattening is frontend-side by design; don't restructure Rewst's actual
-output trying to match a flatter shape, just keep the doc in sync with
-whatever Rewst really returns. There is no `status: "pending"` state to
-handle since the call doesn't return until the workflow is actually done.
-Also note: `safe_browsing.summary` has been observed coming back as a
-nested object rather than a plain string like the other three sources —
-`ResultsView.jsx`'s `SourceRow` defensively stringifies non-string
-`summary` values so this can't crash rendering, but it'd be worth
-flattening on the Rewst side too if easy.
+**How the two calls work** (see `docs/rewst-webhook-contracts.md` for the
+full request/response shapes):
+- `submit` action (Worker) → `triage` webhook, `wait_for_results: false`,
+  fire-and-forget. The Worker generates `request_id` itself
+  (`crypto.randomUUID()`) and embeds it in the payload — it never parses or
+  depends on this trigger's immediate ack, only whether the POST was
+  accepted. This sidesteps a documented Rewst platform issue: async-trigger
+  acks can come back completely empty even when the workflow genuinely ran
+  (see the KB tool's `CLAUDE.md` History #7/#11-13/#17).
+- `poll` action (Worker) → `get_result` webhook, `wait_for_results: true`,
+  the proven synchronous pattern (it's a fast lookup, not a long job).
+  Rewst stores the triage result transiently (an org variable named after
+  `request_id`, or equivalent), and `get_result` **deletes it after a
+  successful read** so it doesn't accumulate — this was a deliberate call
+  to avoid unbounded org-variable buildup, not an oversight.
+- Frontend polling schedule (`ResultsView.jsx`): 5s initial delay, ~12s
+  interval, 3-minute timeout — matches Rewst's own suggested cadence for a
+  60-90s happy-path job.
+
+**Response shape has already moved once** — the synchronous version's
+response came back nested under `final_response` rather than the originally
+assumed flat shape. `src/lib/api.js`'s `checkStatus()` deliberately checks a
+few plausible wrapper keys (`result`, `final_response`, `output`, `data`)
+rather than assuming exactly one, precisely because of that history — keep
+that lenient extraction rather than hardcoding one wrapper key if Rewst's
+side changes again. Also note: `safe_browsing.summary` has been observed
+coming back as a nested object rather than a plain string like the other
+three sources — `ResultsView.jsx`'s `SourceRow` defensively stringifies
+non-string `summary` values so this can't crash rendering.
 
 ## Single-input design (decided before any code existed)
 
@@ -107,25 +118,33 @@ live in the email itself.
 
 ## What's done
 
-- Rewst side: sub-workflow + main workflow built and published, webhook
-  trigger enabled with `wait_for_results: true` (see URL above).
-- Frontend (`src/`): single submit form → one synchronous `triage()` call →
-  results view. No history tab, no polling, nothing keyed by request_id —
-  all of that was removed along with the persistence layer it depended on.
-- `cloudflare-worker.js`: rewritten as a single-endpoint synchronous proxy
-  (see "Single webhook" section above).
-- **Worker deployed** to Cloudflare as `cbm-phishing-proxy`, live at
-  `https://cbm-phishing-proxy.chas-dea.workers.dev` — sanity-checked with a
-  plain GET (`405 {"error":"Method not allowed"}`, confirming the real code
-  is live, not the "Hello World!" default).
-- `src/lib/api.js`'s `PROXY_URL` updated to the real Worker URL above,
-  rebuilt (`npm run build`), and committed.
+- Rewst side: `triage` workflow (updated to accept + store by `request_id`)
+  and new `get_result` workflow, both published, both webhook triggers
+  live (see URLs above).
+- Frontend (`src/`): restored `SubmissionForm` → `submitTriage()` →
+  `ResultsView` polling → verdict. No history tab — that stays gone, since
+  `get_result` only ever returns one transient, self-deleting result, not a
+  browsable log.
+- `cloudflare-worker.js`: rewritten with two actions, `submit`
+  (fire-and-forget to `triage`) and `poll` (synchronous to `get_result`) —
+  see "Async + poll" section above.
+- `src/lib/api.js` / `App.jsx` / `ResultsView.jsx`: rebuilt around
+  `submitTriage()` + `checkStatus()` with the 5s/12s/3min polling schedule.
+  Verified the rebuilt frontend builds cleanly with `npm run build`.
 
 ## What's NOT done yet
 
-- **Test end-to-end** (browser → Worker → Rewst → back) with a real
-  known-benign URL through the actual live page before trusting it, then
-  pull the landing page's "Pilot" badge.
+- **Deploy the updated Worker** — paste the new two-action
+  `cloudflare-worker.js` into the existing `cbm-phishing-proxy` Worker on
+  Cloudflare and **Deploy** (not just Save).
+- **Test end-to-end** (browser → Worker → `triage` → poll → `get_result` →
+  back) with a real known-benign URL through the actual live page — this
+  has NOT been retested since the async rebuild; the "missing a verdict" /
+  Safe Browsing nesting bugs were caught and fixed on the prior synchronous
+  version, not this one. Confirm the response really does arrive wrapped
+  the way `docs/rewst-webhook-contracts.md` currently documents (see its
+  note on this) before trusting it, then pull the landing page's "Pilot"
+  badge.
 - **Licensing check before real client use** — VirusTotal's and Google Safe
   Browsing's free tiers are non-commercial-use only; CBM is an MSP serving
   paying clients, which is commercial use. Confirm or upgrade before this
@@ -133,9 +152,6 @@ live in the email itself.
 - **Optional hardening**: add a secret key to the Rewst trigger and validate
   it in the Worker, so the webhook URL alone (if it ever leaked) isn't
   enough to invoke the workflow directly.
-- **Unknown until tested**: whether URLScan consistently returns within the
-  ~30s window the Worker/Rewst trigger allows. If it times out often, that
-  needs a Rewst-side fix (e.g. a longer wait or a retry), not a frontend one.
 
 ## Hosting (decided 2026-07-29)
 
@@ -194,6 +210,36 @@ which was ported directly from it (not re-derived):
    `src/lib/api.js` down to one `triage()` call, removed the History tab and
    `HistoryTable.jsx` entirely (nothing to list), and removed the
    request_id/polling state from `App.jsx`/`ResultsView.jsx`. Verified the
-   simplified frontend builds cleanly with `npm run build`. Still pending:
-   deploying the Worker and pointing `PROXY_URL` at it (see "What's NOT done
-   yet" above).
+   simplified frontend builds cleanly with `npm run build`.
+7. Deployed `cbm-phishing-proxy` to Cloudflare, pointed `PROXY_URL` at it,
+   rebuilt, and pushed. Live-tested through the actual site: got a real
+   response, but it came back nested under `final_response` (not the flat
+   `{"verdict":{...}}` shape originally assumed) and `safe_browsing.summary`
+   came back as a nested object instead of a plain string — the latter
+   would have crashed the results view (React can't render an object as a
+   child). Fixed both: `triage()` flattens the real nesting, and
+   `SourceRow` defensively stringifies non-string `summary` values. Pushed
+   the fix; confirmed via the docs and CLAUDE.md that the contract now
+   matches reality rather than the original assumption.
+8. Rewst flagged that the fully-synchronous design was risky given the
+   60-90s happy-path duration of the full enrichment chain, and proposed
+   going back to async + polling — but as two webhooks (`triage` +
+   `get_result`), not the original three, since persisted history was
+   still correctly identified as unneeded. Agreed to the request-ID
+   approach (Worker generates it, never trusts Rewst's fire-and-forget ack)
+   given the KB tool's documented history with that exact failure mode.
+   Confirmed with the user: `get_result` deletes its stored value after a
+   successful read (rather than letting org variables accumulate
+   unbounded), and Cloudflare Workers can make unrestricted outbound
+   `fetch()` calls (already proven true — `cbm-phishing-proxy` already does
+   this today). Rewst built both workflows and provided both trigger URLs.
+   Rebuilt `cloudflare-worker.js` (two actions: `submit` fire-and-forget,
+   `poll` synchronous), restored `submitTriage()`/`checkStatus()` in
+   `src/lib/api.js` (keeping the lenient multi-key response extraction from
+   #7's lesson), restored the request_id/polling flow in
+   `App.jsx`/`ResultsView.jsx` (5s initial delay, ~12s interval, 3-minute
+   timeout — Rewst's suggested cadence), and reverted `SubmissionForm`'s
+   "up to 30s" busy hint since submit is fast again (that context now
+   lives in `ResultsView`'s polling screen). Verified the rebuild builds
+   cleanly with `npm run build`. Still pending: deploying the updated
+   Worker and a fresh end-to-end test (see "What's NOT done yet" above).

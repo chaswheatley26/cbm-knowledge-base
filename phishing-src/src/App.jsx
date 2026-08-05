@@ -3,25 +3,25 @@ import styles from "./styles.js";
 import CbmMark from "./components/CbmMark.jsx";
 import SubmissionForm from "./components/SubmissionForm.jsx";
 import ResultsView from "./components/ResultsView.jsx";
-import { triage } from "./lib/api.js";
+import { submitTriage } from "./lib/api.js";
 
-// Screens: "submit" (form, stays mounted through the ~30s wait so a failed
-// request doesn't lose what the tech typed) -> "results" (the verdict).
-// No history tab and nothing keyed by request_id — there's no
-// persistence layer, so there's nothing to poll for or list.
+// Screens: "submit" (form) -> "results" (polling view for one request_id).
+// No history tab — there's still no persisted, browsable submission log
+// (Rewst deletes the transient per-request result once ResultsView reads
+// it), just a short-lived lookup for the one submission in flight.
 export default function App() {
   const [screen, setScreen] = useState("submit");
-  const [verdict, setVerdict] = useState(null);
+  const [activeRequestId, setActiveRequestId] = useState(null);
 
   async function handleSubmit(payload) {
-    const result = await triage(payload);
-    setVerdict(result);
+    const requestId = await submitTriage(payload);
+    setActiveRequestId(requestId);
     setScreen("results");
   }
 
   function backToSubmit() {
     setScreen("submit");
-    setVerdict(null);
+    setActiveRequestId(null);
   }
 
   return (
@@ -41,7 +41,7 @@ export default function App() {
       </header>
       <main style={styles.main}>
         {screen === "submit" && <SubmissionForm onSubmit={handleSubmit} />}
-        {screen === "results" && verdict && <ResultsView verdict={verdict} onBack={backToSubmit} />}
+        {screen === "results" && activeRequestId && <ResultsView requestId={activeRequestId} onBack={backToSubmit} />}
       </main>
     </div>
   );
