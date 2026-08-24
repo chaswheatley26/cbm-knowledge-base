@@ -12,12 +12,16 @@ via `npm run build` — see `vite.config.js`'s `base`/`build.outDir`. GitHub
 Pages serves the built output at
 `https://chaswheatley26.github.io/cbm-knowledge-base/phishing/`, linked from
 the root landing page (`../index.html`) as `href="phishing/"`, same-tab, same
-card style as the KB tool's link. The landing page card currently shows a
-"Pilot" badge — pull it once the tool has been confirmed working end-to-end
-(browser → Worker → Rewst → back) with a real test. After editing anything
-under `src/`, rerun `npm run build` and commit both `phishing-src/` (source)
-and `phishing/` (build output) — this repo has no CI, matching how the rest
-of it works.
+card style as the KB tool's link. **The landing page's "Pilot" badge was
+removed at the user's request (replaced with a "Try it out!" badge) before
+an end-to-end test was ever confirmed working** — see History #10. The
+`enrich_urls`/`vt_lookup_2` failure loop (History #9) may or may not
+actually be resolved; treat "is this tool actually working right now" as
+still open until a real submit→poll→result run is verified, regardless of
+what the landing page badge says. After editing anything under `src/`,
+rerun `npm run build` and commit both `phishing-src/` (source) and
+`phishing/` (build output) — this repo has no CI, matching how the rest of
+it works.
 
 See `../../phishing-triage-tool-spec.md` (CBM IT Website root, one level
 above this repo) for the original product spec — several of its details
@@ -134,23 +138,25 @@ live in the email itself.
 
 ## What's NOT done yet
 
-- **Blocking bug, Rewst-side (see History #9):** the `triage` workflow's
-  `enrich_urls` task consistently fails on its `cbm_phishing_enrich_single_url`
-  sub-workflow right after the `vt_lookup_2` (VirusTotal) step, with no task
-  ID attached to the failure — the engine appears to be killing the
-  sub-workflow's container rather than failing one task normally. Because
-  of this, `store_result` is never reached and `get_result` has nothing to
-  ever return — confirmed via three separate submit+poll tests against the
-  Worker directly (bypassing the frontend entirely), all three stuck at
-  `{"status":"pending"}` for the full ~3-minute window. This has to be
-  fixed in Rewst before anything past this point can be verified.
-- **Once that's fixed — retest end-to-end** (browser → Worker → `triage` →
-  poll → `get_result` → back) through the actual live page. The response
-  shape at that point is still unconfirmed for this async version — don't
-  assume `docs/rewst-webhook-contracts.md`'s documented `get_result` shape
-  is correct yet; it's a best guess pending an actual completed run (see
-  that doc's own note on this). Once confirmed, pull the landing page's
-  "Pilot" badge.
+- **Still-unconfirmed blocking bug, Rewst-side (see History #9-10):** the
+  `triage` workflow's `enrich_urls` task was failing on its
+  `cbm_phishing_enrich_single_url` sub-workflow right after `vt_lookup_2`
+  (VirusTotal), with no task ID attached — the engine appeared to be
+  killing the sub-workflow's container. Rewst diagnosed this as corrupted
+  internal state on the `vt_wait_2` task and recreated it. **A retest
+  after that fix still showed the identical symptom** (4th consecutive
+  submit+poll test stuck at `{"status":"pending"}` for the full ~3-minute
+  window, request_id `f36f4092-8219-48b4-93f5-19ac59826c66`) — the fix was
+  never confirmed to actually work, and no follow-up log check happened
+  before other work took priority. **Do not assume this is fixed.**
+- **Retest end-to-end** (browser → Worker → `triage` → poll → `get_result`
+  → back) through the actual live page before trusting the tool at all —
+  as of this writing there has never been one single successful completed
+  run, only repeated "still pending forever" failures. The response shape
+  for a genuinely completed `get_result` call is also still unconfirmed
+  for this async version — don't assume `docs/rewst-webhook-contracts.md`'s
+  documented shape is correct yet; it's a best guess (see that doc's own
+  note on this).
 - **Licensing check before real client use** — VirusTotal's and Google Safe
   Browsing's free tiers are non-commercial-use only; CBM is an MSP serving
   paying clients, which is commercial use. Confirm or upgrade before this
@@ -270,3 +276,19 @@ which was ported directly from it (not re-derived):
    in whatever step reads `vt_lookup_2`'s output assuming a shape it didn't
    get, or a sub-workflow-level timeout) — nothing actionable on the
    frontend/Worker side until `enrich_urls` actually completes.
+10. Sent Rewst a written bug report with the four hypotheses from #9.
+    Response: `vt_wait_2` had corrupted internal state from the earlier
+    workflow rebuilds, engine couldn't schedule it, killed the container
+    with no clean error — deleting and recreating it fresh was reported as
+    the fix. Retested: **4th consecutive submit+poll test showed the
+    identical symptom** — stuck at `{"status":"pending"}` for the full
+    ~3-minute window (request_id `f36f4092-8219-48b4-93f5-19ac59826c66`).
+    Asked for a log check on that specific execution to confirm whether it
+    hit the same failure point or a new one; no answer was given before
+    the user moved on to unrelated work (an unrelated SaaS Alert Tool link
+    swap, then later, at the user's explicit request, removing the
+    landing-page card's "Pilot" badge and replacing it with "Try it out!"
+    — done as asked, but **without any confirmed working end-to-end run**
+    backing it up. The badge no longer reflects actual verification status;
+    treat the tool as unverified until someone actually gets a completed
+    result through the real page.
