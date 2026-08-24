@@ -295,3 +295,25 @@ which was ported directly from it (not re-derived):
     Remaining gaps: only a benign bare URL has been tested — a malicious/
     suspicious URL and an email input (to exercise `email_signals`) still
     haven't been.
+12. User reported a failure through the live page: "This is taking longer
+    than expected (over 3 minutes)." Console log showed TWO submissions —
+    the first (`4a58f7cb-...`, `admin.exchange.microsoft.com`) completed
+    fine; the second (`849da396-3114-4c44-94a4-8e5f53579951`) polled 14
+    times (~168s+) and hit the client-side timeout. Polled that same
+    request_id directly against the Worker after the fact — **it had
+    actually completed successfully**, just after the frontend gave up.
+    Verdict: `suspicious`, 62% confidence, for
+    `https://shared.outlook.inky.com/link?domain=ezvjd6-wj.myshopify.com&...`
+    — an Inky-wrapped email-security link redirecting to a
+    randomly-generated Shopify subdomain, correctly flagged as disposable
+    phishing infrastructure despite clean raw reputation scores from all
+    three enrichment sources. Not a bug: **link-wrapped/redirect URLs take
+    longer to enrich** than direct URLs (URLScan has to follow the
+    redirect chain first) — both prior successful tests (`google.com`,
+    `admin.exchange.microsoft.com`) were direct URLs finishing in ~72s.
+    Bumped `ResultsView.jsx`'s `TIMEOUT_MS` from 3 to 5 minutes to give
+    redirect-chain URLs room to finish, and updated the pending-screen
+    hint text (was a flat "60-90 seconds" claim, now notes wrapped/
+    redirected links take longer) so a tech watching the spinner isn't
+    confused when it runs past the happy-path estimate. Rebuilt cleanly
+    with `npm run build`.

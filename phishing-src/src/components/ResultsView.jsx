@@ -8,12 +8,16 @@ import VerdictBadge from "./VerdictBadge.jsx";
 
 // Per Rewst's suggested polling schedule: the enrichment chain runs
 // 60-90s in the happy path, so there's no point polling immediately or
-// aggressively. 3-minute timeout leaves headroom above the happy-path
-// range without leaving a tech staring at a spinner indefinitely if
-// something actually stalls.
+// aggressively. Link-wrapped/redirect URLs (e.g. an Inky-wrapped link
+// redirecting through to the real destination) take longer, since URLScan
+// has to follow the redirect chain before it can scan anything — one such
+// case genuinely completed just past the old 3-minute timeout, which cut
+// the tech off while Rewst was still legitimately working. 5 minutes
+// leaves headroom for that case without leaving a tech staring at a
+// spinner indefinitely if something actually stalls.
 const INITIAL_DELAY_MS = 5000;
 const POLL_INTERVAL_MS = 12000;
-const TIMEOUT_MS = 3 * 60 * 1000;
+const TIMEOUT_MS = 5 * 60 * 1000;
 
 // Any enrichment source that failed/timed out is shown as its own visible
 // row — never silently dropped or read as "clean". See CLAUDE.md "Known
@@ -110,7 +114,7 @@ export default function ResultsView({ requestId, onBack }) {
       ) : status === "pending" ? (
         <div style={styles.centerCol}>
           <Loader2 size={28} style={styles.spinIcon} />
-          <div style={styles.centerHint}>Checking — full enrichment can take 60-90 seconds…</div>
+          <div style={styles.centerHint}>Checking — usually 60-90 seconds, longer for wrapped or redirected links…</div>
         </div>
       ) : (
         <div style={styles.detailCard}>
