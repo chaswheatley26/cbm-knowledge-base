@@ -4,17 +4,95 @@
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
 <title>CBM IT — Home</title>
+<script>
+  // Runs before first paint so the page never flashes the wrong theme.
+  // Shared across every page on this origin (this landing page, kb/,
+  // phishing/) via the same "cbm-theme" localStorage key, so a choice made
+  // on one tool applies everywhere without needing three separate toggles
+  // kept in sync.
+  (function () {
+    try {
+      var stored = localStorage.getItem("cbm-theme");
+      var theme = stored || (window.matchMedia && window.matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light");
+      document.documentElement.setAttribute("data-theme", theme);
+    } catch (e) {}
+  })();
+</script>
 <style>
   * { box-sizing: border-box; }
   html, body { margin: 0; min-height: 100%; }
+
+  :root {
+    --bg: #f5f7fb;
+    --surface: #fff;
+    --border: #e6eaf2;
+    --border-strong: #c3ccdd;
+    --text: #1a2238;
+    --text-muted: #7a8499;
+    --text-faint: #9aa3b5;
+    --navy: #2b3d6b;
+    --gold: #c9a938;
+    --icon-wrap-bg: #eef1f7;
+    --icon-wrap-bg-gold: #fbf3de;
+    --gold-icon: #a4832a;
+    --shadow-sm: rgba(20,30,60,0.04);
+    --shadow-md: rgba(20,30,60,0.08);
+    --shadow-hover: rgba(20,30,60,0.09);
+    --try-badge-bg: #e6f4ec;
+    --try-badge-fg: #1b7a44;
+  }
+  :root[data-theme="dark"] {
+    --bg: #10131f;
+    --surface: #1a2036;
+    --border: #2b3350;
+    --border-strong: #3d4870;
+    --text: #e7eaf5;
+    --text-muted: #9aa7c7;
+    --text-faint: #7784a3;
+    --navy: #8fa3e0;
+    --gold: #e0bf52;
+    --icon-wrap-bg: #232a47;
+    --icon-wrap-bg-gold: #3a331a;
+    --gold-icon: #e0bf52;
+    --shadow-sm: rgba(0,0,0,0.3);
+    --shadow-md: rgba(0,0,0,0.35);
+    --shadow-hover: rgba(0,0,0,0.45);
+    --try-badge-bg: #16311f;
+    --try-badge-fg: #6fd39a;
+  }
+
   body {
-    background: #f5f7fb;
+    background: var(--bg);
     font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
-    color: #1a2238;
+    color: var(--text);
     display: flex;
     flex-direction: column;
     min-height: 100vh;
+    transition: background 0.15s ease, color 0.15s ease;
   }
+
+  .themeToggle {
+    position: fixed;
+    top: 20px;
+    right: 20px;
+    width: 40px;
+    height: 40px;
+    border-radius: 11px;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    box-shadow: 0 2px 6px var(--shadow-md);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    color: var(--text-muted);
+    z-index: 10;
+  }
+  .themeToggle:hover { border-color: var(--border-strong); }
+  .themeToggle svg { display: block; }
+  .themeToggle .iconMoon { display: none; }
+  :root[data-theme="dark"] .themeToggle .iconSun { display: none; }
+  :root[data-theme="dark"] .themeToggle .iconMoon { display: block; }
 
   .wrap {
     max-width: 880px;
@@ -35,12 +113,12 @@
     width: 64px;
     height: 64px;
     border-radius: 16px;
-    background: #fff;
-    border: 1px solid #e6eaf2;
+    background: var(--surface);
+    border: 1px solid var(--border);
     display: flex;
     align-items: center;
     justify-content: center;
-    box-shadow: 0 4px 14px rgba(20,30,60,0.08);
+    box-shadow: 0 4px 14px var(--shadow-md);
     margin-bottom: 20px;
   }
   .welcome {
@@ -48,12 +126,12 @@
     font-size: 34px;
     font-weight: 600;
     letter-spacing: -0.02em;
-    color: #2b3d6b;
+    color: var(--navy);
     margin: 0 0 10px;
   }
   .sub {
     font-size: 15px;
-    color: #7a8499;
+    color: var(--text-muted);
     margin: 0;
     max-width: 420px;
     line-height: 1.5;
@@ -69,34 +147,34 @@
     display: flex;
     flex-direction: column;
     gap: 14px;
-    background: #fff;
-    border: 1px solid #e6eaf2;
+    background: var(--surface);
+    border: 1px solid var(--border);
     border-radius: 16px;
     padding: 28px;
     text-decoration: none;
     color: inherit;
     transition: all 0.16s ease;
-    box-shadow: 0 4px 20px rgba(20,30,60,0.04);
+    box-shadow: 0 4px 20px var(--shadow-sm);
   }
   .card:hover {
-    border-color: #c3ccdd;
+    border-color: var(--border-strong);
     transform: translateY(-2px);
-    box-shadow: 0 8px 24px rgba(20,30,60,0.09);
+    box-shadow: 0 8px 24px var(--shadow-hover);
   }
 
   .iconWrap {
     width: 46px;
     height: 46px;
     border-radius: 12px;
-    background: #eef1f7;
+    background: var(--icon-wrap-bg);
     display: flex;
     align-items: center;
     justify-content: center;
     flex-shrink: 0;
   }
-  .iconWrap svg { stroke: #2b3d6b; }
-  .card.gold .iconWrap { background: #fbf3de; }
-  .card.gold .iconWrap svg { stroke: #a4832a; }
+  .iconWrap svg { stroke: var(--navy); }
+  .card.gold .iconWrap { background: var(--icon-wrap-bg-gold); }
+  .card.gold .iconWrap svg { stroke: var(--gold-icon); }
 
   .cardTitle {
     font-size: 17px;
@@ -106,7 +184,7 @@
   }
   .cardDesc {
     font-size: 13.5px;
-    color: #7a8499;
+    color: var(--text-muted);
     line-height: 1.55;
     margin: 0;
     flex: 1;
@@ -117,9 +195,9 @@
     gap: 6px;
     font-size: 12.5px;
     font-weight: 650;
-    color: #2b3d6b;
+    color: var(--navy);
   }
-  .card.gold .cardFoot { color: #a4832a; }
+  .card.gold .cardFoot { color: var(--gold-icon); }
 
   .cardHead {
     display: flex;
@@ -135,8 +213,8 @@
     font-weight: 700;
     letter-spacing: 0.03em;
     text-transform: uppercase;
-    color: #1b7a44;
-    background: #e6f4ec;
+    color: var(--try-badge-fg);
+    background: var(--try-badge-bg);
     padding: 3px 9px;
     border-radius: 20px;
     white-space: nowrap;
@@ -146,12 +224,22 @@
     text-align: center;
     padding: 20px 24px 28px;
     font-size: 12px;
-    color: #9aa3b5;
+    color: var(--text-faint);
     flex-shrink: 0;
   }
 </style>
 </head>
 <body>
+  <button class="themeToggle" id="themeToggle" aria-label="Toggle dark mode" title="Toggle dark mode">
+    <svg class="iconSun" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+      <circle cx="12" cy="12" r="4"></circle>
+      <path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M6.34 17.66l-1.41 1.41M19.07 4.93l-1.41 1.41"></path>
+    </svg>
+    <svg class="iconMoon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+      <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79Z"></path>
+    </svg>
+  </button>
+
   <div class="wrap">
     <div class="banner">
       <div class="logoMark">
@@ -208,5 +296,14 @@
   </div>
 
   <footer>CBM IT</footer>
+
+  <script>
+    document.getElementById("themeToggle").addEventListener("click", function () {
+      var current = document.documentElement.getAttribute("data-theme") === "dark" ? "dark" : "light";
+      var next = current === "dark" ? "light" : "dark";
+      document.documentElement.setAttribute("data-theme", next);
+      try { localStorage.setItem("cbm-theme", next); } catch (e) {}
+    });
+  </script>
 </body>
 </html>

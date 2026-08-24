@@ -1,10 +1,28 @@
 import { useState } from "react";
-import { ChevronLeft } from "lucide-react";
+import { ChevronLeft, Sun, Moon } from "lucide-react";
 import styles from "./styles.js";
 import CbmMark from "./components/CbmMark.jsx";
 import SubmissionForm from "./components/SubmissionForm.jsx";
 import ResultsView from "./components/ResultsView.jsx";
 import { submitTriage } from "./lib/api.js";
+
+// Shared with the landing page and the KB tool via the same "cbm-theme"
+// localStorage key (all three are same-origin GitHub Pages paths, so
+// localStorage is genuinely shared) — a theme choice made on any one of
+// them applies everywhere. index.html's inline head script already sets
+// document.documentElement's data-theme before this app mounts, so reading
+// it here on init just picks up whatever was already applied (no flash of
+// the wrong theme).
+function useTheme() {
+  const [theme, setTheme] = useState(() => document.documentElement.getAttribute("data-theme") || "light");
+  function toggleTheme() {
+    const next = theme === "dark" ? "light" : "dark";
+    document.documentElement.setAttribute("data-theme", next);
+    try { localStorage.setItem("cbm-theme", next); } catch (e) {}
+    setTheme(next);
+  }
+  return [theme, toggleTheme];
+}
 
 // Screens: "submit" (form) -> "results" (polling view for one request_id).
 // No history tab — there's still no persisted, browsable submission log
@@ -13,6 +31,7 @@ import { submitTriage } from "./lib/api.js";
 export default function App() {
   const [screen, setScreen] = useState("submit");
   const [activeRequestId, setActiveRequestId] = useState(null);
+  const [theme, toggleTheme] = useTheme();
 
   async function handleSubmit(payload) {
     const requestId = await submitTriage(payload);
@@ -41,6 +60,9 @@ export default function App() {
               </div>
             </div>
           </div>
+          <button style={styles.themeToggle} onClick={toggleTheme} aria-label="Toggle dark mode" title="Toggle dark mode">
+            {theme === "dark" ? <Sun size={17} /> : <Moon size={17} />}
+          </button>
         </div>
       </header>
       <main style={styles.main}>

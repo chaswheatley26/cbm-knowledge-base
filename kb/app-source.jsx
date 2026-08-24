@@ -24,6 +24,26 @@ const Building2 = LR.Building2 || NoIcon;
 const Sparkles = LR.Sparkles || NoIcon;
 const ExternalLink = LR.ExternalLink || NoIcon;
 const Copy = LR.Copy || NoIcon;
+const Sun = LR.Sun || NoIcon;
+const Moon = LR.Moon || NoIcon;
+
+// Shared with the landing page and the phishing tool via the same
+// "cbm-theme" localStorage key (all three are same-origin GitHub Pages
+// paths, so localStorage is genuinely shared) — a theme choice made on any
+// one of them applies everywhere. index.html's inline head script already
+// sets document.documentElement's data-theme before this app boots, so
+// reading it here on mount just picks up whatever was already applied
+// (no flash of the wrong theme).
+function useTheme() {
+  const [theme, setTheme] = useState(() => document.documentElement.getAttribute("data-theme") || "light");
+  function toggleTheme() {
+    const next = theme === "dark" ? "light" : "dark";
+    document.documentElement.setAttribute("data-theme", next);
+    try { localStorage.setItem("cbm-theme", next); } catch (e) {}
+    setTheme(next);
+  }
+  return [theme, toggleTheme];
+}
 
 /* =========================================================================
    REWST WEBHOOKS — all 4 calls now go through a Cloudflare Worker proxy
@@ -44,7 +64,7 @@ const Copy = LR.Copy || NoIcon;
 // Bump this string every time a new version is shipped, so the visible
 // header text alone confirms whether the latest paste is actually live —
 // no devtools required.
-const BUILD_TAG = "1.23";
+const BUILD_TAG = "1.3";
 
 const PROXY_URL = "https://cbm-kb-proxy.chas-dea.workers.dev";
 
@@ -156,9 +176,9 @@ function ConfidenceBadge({ score }) {
   if (Number.isNaN(num)) return null;
   const tier = num >= 8 ? "high" : num >= 5 ? "mid" : "low";
   const colors = {
-    high: { bg: "#e6f4ec", fg: "#1b7a44" },   // 8-10 green
-    mid: { bg: "#fdf0e3", fg: "#a85a16" },    // 5-7 amber
-    low: { bg: "#eef1f7", fg: "#5a6479" },    // 4 grey
+    high: { bg: "var(--success-bg)", fg: "var(--success-fg)" },   // 8-10 green
+    mid: { bg: "var(--warn-bg)", fg: "var(--warn-fg)" },          // 5-7 amber
+    low: { bg: "var(--chip-bg-alt)", fg: "var(--text-secondary)" }, // 4 grey
   };
   const c = colors[tier];
   return <span style={{ ...styles.pill, background: c.bg, color: c.fg }}>{num}/10 match</span>;
@@ -438,7 +458,7 @@ function BrowsePage({ onOpenDetail }) {
       </div>
 
       <div style={styles.dbSearchBox}>
-        <Search size={17} style={{ color: "#7a8499", flexShrink: 0 }} />
+        <Search size={17} style={{ color: "var(--text-muted)", flexShrink: 0 }} />
         <input style={styles.dbSearchInput} placeholder="Filter loaded results by keyword or tag…" value={q} onChange={(e) => setQ(e.target.value)} />
         {q && <button style={styles.clearBtn} onClick={() => setQ("")}><X size={15} /></button>}
       </div>
@@ -572,6 +592,7 @@ function DetailView({ id, onBack }) {
 function App() {
   const [page, setPage] = useState("search");
   const [detail, setDetail] = useState(null); // { id, from }
+  const [theme, toggleTheme] = useTheme();
 
   function openDetail(id, from) { setDetail({ id, from }); }
   function closeDetail() { setPage(detail.from); setDetail(null); }
@@ -591,17 +612,22 @@ function App() {
               </div>
             </a>
           </div>
-          <nav style={styles.navTabs}>
-            <button style={{ ...styles.navTab, ...(page === "search" && !detail ? styles.navTabActive : {}) }} onClick={() => go("search")}>
-              <Search size={15} /> Search
+          <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+            <nav style={styles.navTabs}>
+              <button style={{ ...styles.navTab, ...(page === "search" && !detail ? styles.navTabActive : {}) }} onClick={() => go("search")}>
+                <Search size={15} /> Search
+              </button>
+              <button style={{ ...styles.navTab, ...(page === "submit" && !detail ? styles.navTabActive : {}) }} onClick={() => go("submit")}>
+                <Plus size={15} /> Submit
+              </button>
+              <button style={{ ...styles.navTab, ...(page === "browse" && !detail ? styles.navTabActive : {}) }} onClick={() => go("browse")}>
+                <BookOpen size={15} /> Browse
+              </button>
+            </nav>
+            <button style={styles.themeToggle} onClick={toggleTheme} aria-label="Toggle dark mode" title="Toggle dark mode">
+              {theme === "dark" ? <Sun size={17} /> : <Moon size={17} />}
             </button>
-            <button style={{ ...styles.navTab, ...(page === "submit" && !detail ? styles.navTabActive : {}) }} onClick={() => go("submit")}>
-              <Plus size={15} /> Submit
-            </button>
-            <button style={{ ...styles.navTab, ...(page === "browse" && !detail ? styles.navTabActive : {}) }} onClick={() => go("browse")}>
-              <BookOpen size={15} /> Browse
-            </button>
-          </nav>
+          </div>
         </div>
       </header>
 
@@ -620,90 +646,96 @@ function App() {
   );
 }
 
-/* ================================ STYLES ================================ */
+/* ================================ STYLES ================================
+   Colors reference CSS custom properties defined in index.html's <style>
+   block (light values on :root, dark overrides on :root[data-theme="dark"])
+   instead of literal hex, so useTheme()'s toggle repaints the whole app —
+   see that block for the actual token values and CLAUDE.md's design system
+   note. Non-color values (spacing, radius, etc.) stay literal as before. */
 const styles = {
-  page: { minHeight: "100vh", display: "flex", flexDirection: "column", background: "#f5f7fb", fontFamily: "'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif", color: "#1a2238" },
-  header: { background: "#fff", borderBottom: "1px solid #e6eaf2", flexShrink: 0, zIndex: 10 },
+  page: { minHeight: "100vh", display: "flex", flexDirection: "column", background: "var(--bg)", fontFamily: "'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif", color: "var(--text)" },
+  header: { background: "var(--surface)", borderBottom: "1px solid var(--border)", flexShrink: 0, zIndex: 10 },
   headerInner: { maxWidth: 880, margin: "0 auto", padding: "16px 24px", display: "flex", alignItems: "center", justifyContent: "space-between", gap: 20 },
   brand: { display: "flex", alignItems: "center", gap: 12, cursor: "pointer" },
-  homeLink: { display: "inline-flex", alignItems: "center", gap: 4, fontSize: 13.5, fontWeight: 600, color: "#5a6479", textDecoration: "none", flexShrink: 0 },
-  logoMark: { width: 40, height: 40, borderRadius: 11, background: "#fff", border: "1px solid #e6eaf2", display: "flex", alignItems: "center", justifyContent: "center", boxShadow: "0 2px 6px rgba(20,30,60,0.08)" },
+  homeLink: { display: "inline-flex", alignItems: "center", gap: 4, fontSize: 13.5, fontWeight: 600, color: "var(--text-secondary)", textDecoration: "none", flexShrink: 0 },
+  logoMark: { width: 40, height: 40, borderRadius: 11, background: "var(--logo-bg)", border: "1px solid var(--border)", display: "flex", alignItems: "center", justifyContent: "center", boxShadow: "0 2px 6px var(--shadow-md)" },
   brandName: { fontWeight: 700, fontSize: 17, letterSpacing: "-0.01em" },
-  brandSub: { fontSize: 12.5, color: "#7a8499" },
-  navTabs: { display: "flex", gap: 4, background: "#f5f7fb", borderRadius: 12, padding: 4 },
-  navTab: { display: "inline-flex", alignItems: "center", gap: 6, background: "none", border: "none", borderRadius: 9, padding: "8px 14px", fontSize: 13.5, fontWeight: 650, color: "#5a6479", cursor: "pointer" },
-  navTabActive: { background: "#fff", color: "#2b3d6b", boxShadow: "0 1px 4px rgba(20,30,60,0.08)" },
+  brandSub: { fontSize: 12.5, color: "var(--text-muted)" },
+  navTabs: { display: "flex", gap: 4, background: "var(--bg)", borderRadius: 12, padding: 4 },
+  navTab: { display: "inline-flex", alignItems: "center", gap: 6, background: "none", border: "none", borderRadius: 9, padding: "8px 14px", fontSize: 13.5, fontWeight: 650, color: "var(--text-secondary)", cursor: "pointer" },
+  navTabActive: { background: "var(--surface)", color: "var(--navy-text)", boxShadow: "0 1px 4px var(--shadow-md)" },
+  themeToggle: { display: "flex", alignItems: "center", justifyContent: "center", width: 34, height: 34, borderRadius: 9, background: "var(--bg)", border: "1px solid var(--border)", color: "var(--text-secondary)", cursor: "pointer", flexShrink: 0 },
   main: { maxWidth: 880, margin: "0 auto", padding: "28px 24px 60px", width: "100%", flex: 1 },
 
   heroWrap: { maxWidth: 680, margin: "0 auto" },
-  greeting: { display: "flex", alignItems: "center", justifyContent: "center", gap: 12, fontSize: 27, fontWeight: 600, letterSpacing: "-0.02em", marginBottom: 22, fontFamily: "Georgia, 'Times New Roman', serif", color: "#2b3d6b", textAlign: "center" },
-  bigBox: { background: "#fff", border: "1px solid #d8deea", borderRadius: 16, padding: "16px 18px", boxShadow: "0 4px 20px rgba(20,30,60,0.05)" },
-  bigInput: { width: "100%", border: "none", outline: "none", resize: "none", fontSize: 16, fontFamily: "inherit", lineHeight: 1.5, color: "#1a2238", background: "transparent", minHeight: 28, maxHeight: 400, overflowY: "auto" },
+  greeting: { display: "flex", alignItems: "center", justifyContent: "center", gap: 12, fontSize: 27, fontWeight: 600, letterSpacing: "-0.02em", marginBottom: 22, fontFamily: "Georgia, 'Times New Roman', serif", color: "var(--navy-text)", textAlign: "center" },
+  bigBox: { background: "var(--surface)", border: "1px solid var(--border-input)", borderRadius: 16, padding: "16px 18px", boxShadow: "0 4px 20px var(--shadow-sm)" },
+  bigInput: { width: "100%", border: "none", outline: "none", resize: "none", fontSize: 16, fontFamily: "inherit", lineHeight: 1.5, color: "var(--text)", background: "transparent", minHeight: 28, maxHeight: 400, overflowY: "auto" },
   bigBoxFoot: { display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12, marginTop: 8 },
-  bigBoxHint: { fontSize: 12.5, color: "#9aa3b5" },
-  sendBtn: { background: "#2b3d6b", color: "#fff", border: "none", borderRadius: 11, width: 40, height: 40, display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer", flexShrink: 0 },
+  bigBoxHint: { fontSize: 12.5, color: "var(--text-faint)" },
+  sendBtn: { background: "var(--navy-fill)", color: "#fff", border: "none", borderRadius: 11, width: 40, height: 40, display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer", flexShrink: 0 },
 
   heroTitle: { fontSize: 25, fontWeight: 750, margin: "0 0 6px", letterSpacing: "-0.02em" },
-  heroSub: { fontSize: 14.5, color: "#7a8499", margin: "0 0 18px", lineHeight: 1.5 },
+  heroSub: { fontSize: 14.5, color: "var(--text-muted)", margin: "0 0 18px", lineHeight: 1.5 },
 
-  pasteCard: { background: "#fff", border: "1px solid #d8deea", borderRadius: 14, padding: "18px 20px" },
+  pasteCard: { background: "var(--surface)", border: "1px solid var(--border-input)", borderRadius: 14, padding: "18px 20px" },
   field: { marginTop: 0 },
-  fieldLabel: { display: "block", fontSize: 12.5, fontWeight: 650, color: "#5a6479", marginBottom: 7 },
-  input: { width: "100%", border: "1px solid #d8deea", borderRadius: 11, padding: "11px 14px", fontSize: 14.5, fontFamily: "inherit", color: "#1a2238", background: "#fff" },
-  textarea: { width: "100%", border: "1px solid #d8deea", borderRadius: 11, padding: "12px 14px", fontSize: 14.5, fontFamily: "inherit", resize: "vertical", color: "#1a2238", lineHeight: 1.55 },
+  fieldLabel: { display: "block", fontSize: 12.5, fontWeight: 650, color: "var(--text-secondary)", marginBottom: 7 },
+  input: { width: "100%", border: "1px solid var(--border-input)", borderRadius: 11, padding: "11px 14px", fontSize: 14.5, fontFamily: "inherit", color: "var(--text)", background: "var(--surface)" },
+  textarea: { width: "100%", border: "1px solid var(--border-input)", borderRadius: 11, padding: "12px 14px", fontSize: 14.5, fontFamily: "inherit", resize: "vertical", color: "var(--text)", lineHeight: 1.55 },
 
-  primaryBtn: { display: "inline-flex", alignItems: "center", gap: 8, background: "#2b3d6b", color: "#fff", border: "none", borderRadius: 11, padding: "11px 20px", fontSize: 14.5, fontWeight: 650, cursor: "pointer", boxShadow: "0 3px 10px rgba(43,61,107,0.25)" },
-  secondaryBtn: { display: "inline-flex", alignItems: "center", gap: 8, background: "#fff", color: "#5a6479", border: "1px solid #d8deea", borderRadius: 11, padding: "11px 20px", fontSize: 14.5, fontWeight: 650, cursor: "pointer" },
-  backBtn: { display: "inline-flex", alignItems: "center", gap: 5, background: "none", border: "none", color: "#5a6479", fontSize: 14, fontWeight: 600, cursor: "pointer", padding: "0 0 14px" },
+  primaryBtn: { display: "inline-flex", alignItems: "center", gap: 8, background: "var(--navy-fill)", color: "#fff", border: "none", borderRadius: 11, padding: "11px 20px", fontSize: 14.5, fontWeight: 650, cursor: "pointer", boxShadow: "0 3px 10px var(--shadow-navy)" },
+  secondaryBtn: { display: "inline-flex", alignItems: "center", gap: 8, background: "var(--surface)", color: "var(--text-secondary)", border: "1px solid var(--border-input)", borderRadius: 11, padding: "11px 20px", fontSize: 14.5, fontWeight: 650, cursor: "pointer" },
+  backBtn: { display: "inline-flex", alignItems: "center", gap: 5, background: "none", border: "none", color: "var(--text-secondary)", fontSize: 14, fontWeight: 600, cursor: "pointer", padding: "0 0 14px" },
 
-  dupWarning: { marginTop: 16, background: "#fdf6e9", border: "1px solid #f0dfae", borderRadius: 14, padding: "16px" },
-  dupWarningHead: { display: "flex", alignItems: "center", gap: 8, fontSize: 13.5, fontWeight: 650, color: "#a85a16", marginBottom: 12 },
+  dupWarning: { marginTop: 16, background: "var(--warn-bg-soft)", border: "1px solid var(--warn-border)", borderRadius: 14, padding: "16px" },
+  dupWarningHead: { display: "flex", alignItems: "center", gap: 8, fontSize: 13.5, fontWeight: 650, color: "var(--warn-fg)", marginBottom: 12 },
   dupActions: { display: "flex", justifyContent: "flex-end", gap: 10, marginTop: 14 },
 
-  errorBox: { display: "flex", alignItems: "center", gap: 8, background: "#fdeceb", color: "#b4271e", borderRadius: 10, padding: "11px 14px", fontSize: 13.5, marginTop: 12 },
-  successBox: { display: "flex", alignItems: "center", gap: 10, background: "#f4f8f5", border: "1px solid #d9ebe0", color: "#1b7a44", borderRadius: 12, padding: "12px 14px", fontSize: 14, fontWeight: 650, marginTop: 14 },
+  errorBox: { display: "flex", alignItems: "center", gap: 8, background: "var(--danger-bg)", color: "var(--danger-fg)", borderRadius: 10, padding: "11px 14px", fontSize: 13.5, marginTop: 12 },
+  successBox: { display: "flex", alignItems: "center", gap: 10, background: "var(--success-bg-soft)", border: "1px solid var(--success-border)", color: "var(--success-fg)", borderRadius: 12, padding: "12px 14px", fontSize: 14, fontWeight: 650, marginTop: 14 },
 
-  resultsHead: { fontSize: 13, color: "#7a8499", fontWeight: 600, marginBottom: 12, textTransform: "uppercase", letterSpacing: "0.04em" },
+  resultsHead: { fontSize: 13, color: "var(--text-muted)", fontWeight: 600, marginBottom: 12, textTransform: "uppercase", letterSpacing: "0.04em" },
   list: { display: "flex", flexDirection: "column", gap: 12 },
-  card: { textAlign: "left", background: "#fff", border: "1px solid #e6eaf2", borderRadius: 14, padding: "16px 18px", cursor: "pointer", transition: "all 0.16s ease", display: "block", width: "100%" },
+  card: { textAlign: "left", background: "var(--surface)", border: "1px solid var(--border)", borderRadius: 14, padding: "16px 18px", cursor: "pointer", transition: "all 0.16s ease", display: "block", width: "100%" },
   cardTop: { display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: 12, marginBottom: 7 },
   cardTitle: { fontWeight: 650, fontSize: 15.5, letterSpacing: "-0.01em" },
   cardMeta: { display: "flex", gap: 8, marginBottom: 8, flexWrap: "wrap", alignItems: "center" },
-  metaTag: { display: "inline-flex", alignItems: "center", gap: 5, fontSize: 12, color: "#5a6479", background: "#f0f3f9", padding: "3px 9px", borderRadius: 7 },
-  metaTagFaint: { display: "inline-flex", alignItems: "center", gap: 4, fontSize: 11.5, color: "#9aa3b5", padding: "3px 4px" },
-  cardPreview: { margin: 0, fontSize: 13.5, color: "#6b7488", lineHeight: 1.5 },
+  metaTag: { display: "inline-flex", alignItems: "center", gap: 5, fontSize: 12, color: "var(--text-secondary)", background: "var(--chip-bg)", padding: "3px 9px", borderRadius: 7 },
+  metaTagFaint: { display: "inline-flex", alignItems: "center", gap: 4, fontSize: 11.5, color: "var(--text-faint)", padding: "3px 4px" },
+  cardPreview: { margin: 0, fontSize: 13.5, color: "var(--text-muted)", lineHeight: 1.5 },
   pill: { display: "inline-flex", alignItems: "center", gap: 4, fontSize: 11.5, fontWeight: 650, padding: "4px 10px", borderRadius: 20, whiteSpace: "nowrap", flexShrink: 0 },
 
-  noMatch: { background: "#fff", border: "1px dashed #c9d2e3", borderRadius: 16, padding: "36px 24px", textAlign: "center", marginTop: 24 },
+  noMatch: { background: "var(--surface)", border: "1px dashed var(--border-strong)", borderRadius: 16, padding: "36px 24px", textAlign: "center", marginTop: 24 },
   noMatchTitle: { fontWeight: 700, fontSize: 16, marginBottom: 6 },
-  noMatchText: { fontSize: 13.5, color: "#7a8499", maxWidth: 420, margin: "0 auto", lineHeight: 1.55 },
-  center: { display: "flex", alignItems: "center", justifyContent: "center", padding: "60px 0", color: "#2b3d6b" },
-  centerCol: { display: "flex", flexDirection: "column", alignItems: "center", gap: 10, padding: "60px 0", color: "#2b3d6b" },
-  centerHint: { fontSize: 13, color: "#9aa3b5", fontWeight: 600 },
+  noMatchText: { fontSize: 13.5, color: "var(--text-muted)", maxWidth: 420, margin: "0 auto", lineHeight: 1.55 },
+  center: { display: "flex", alignItems: "center", justifyContent: "center", padding: "60px 0", color: "var(--navy-text)" },
+  centerCol: { display: "flex", flexDirection: "column", alignItems: "center", gap: 10, padding: "60px 0", color: "var(--navy-text)" },
+  centerHint: { fontSize: 13, color: "var(--text-faint)", fontWeight: 600 },
 
   dbHead: { display: "flex", alignItems: "baseline", gap: 12, marginBottom: 16 },
   dbTitle: { fontSize: 24, fontWeight: 750, margin: 0, letterSpacing: "-0.02em" },
-  dbCount: { fontSize: 13, color: "#9aa3b5", fontWeight: 600 },
-  dbSearchBox: { display: "flex", alignItems: "center", gap: 10, background: "#fff", border: "1px solid #d8deea", borderRadius: 12, padding: "0 14px", height: 46, marginBottom: 16 },
-  dbSearchInput: { flex: 1, border: "none", outline: "none", fontSize: 14.5, background: "transparent", color: "#1a2238" },
-  clearBtn: { border: "none", background: "#eef1f7", borderRadius: 8, width: 28, height: 28, display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer", color: "#5a6479", flexShrink: 0 },
+  dbCount: { fontSize: 13, color: "var(--text-faint)", fontWeight: 600 },
+  dbSearchBox: { display: "flex", alignItems: "center", gap: 10, background: "var(--surface)", border: "1px solid var(--border-input)", borderRadius: 12, padding: "0 14px", height: 46, marginBottom: 16 },
+  dbSearchInput: { flex: 1, border: "none", outline: "none", fontSize: 14.5, background: "transparent", color: "var(--text)" },
+  clearBtn: { border: "none", background: "var(--chip-bg-alt)", borderRadius: 8, width: 28, height: 28, display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer", color: "var(--text-secondary)", flexShrink: 0 },
   filterRow: { display: "flex", flexWrap: "wrap", gap: 8, marginBottom: 12 },
-  chip: { border: "1px solid #d8deea", background: "#fff", color: "#5a6479", borderRadius: 20, padding: "6px 14px", fontSize: 13, fontWeight: 600, cursor: "pointer", transition: "all 0.14s ease" },
-  chipActive: { background: "#2b3d6b", borderColor: "#2b3d6b", color: "#fff", boxShadow: "0 2px 8px rgba(43,61,107,0.25)" },
+  chip: { border: "1px solid var(--border-input)", background: "var(--surface)", color: "var(--text-secondary)", borderRadius: 20, padding: "6px 14px", fontSize: 13, fontWeight: 600, cursor: "pointer", transition: "all 0.14s ease" },
+  chipActive: { background: "var(--navy-fill)", borderColor: "var(--navy-fill)", color: "#fff", boxShadow: "0 2px 8px var(--shadow-navy)" },
 
-  detailCard: { background: "#fff", border: "1px solid #e6eaf2", borderRadius: 16, padding: "26px 28px" },
+  detailCard: { background: "var(--surface)", border: "1px solid var(--border)", borderRadius: 16, padding: "26px 28px" },
   detailHead: { display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: 14, marginBottom: 10 },
   detailTitle: { fontSize: 21, fontWeight: 750, margin: 0, letterSpacing: "-0.02em", lineHeight: 1.3 },
-  itglueLink: { display: "inline-flex", alignItems: "center", gap: 5, fontSize: 12.5, fontWeight: 650, color: "#5a6479", background: "#f0f3f9", padding: "6px 12px", borderRadius: 8, textDecoration: "none", whiteSpace: "nowrap", flexShrink: 0 },
+  itglueLink: { display: "inline-flex", alignItems: "center", gap: 5, fontSize: 12.5, fontWeight: 650, color: "var(--text-secondary)", background: "var(--chip-bg)", padding: "6px 12px", borderRadius: 8, textDecoration: "none", whiteSpace: "nowrap", flexShrink: 0 },
   detailMeta: { display: "flex", gap: 8, flexWrap: "wrap", marginBottom: 6, alignItems: "center" },
   section: { marginTop: 22 },
   sectionLabelRow: { display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10, marginBottom: 8 },
-  sectionLabel: { fontSize: 11.5, fontWeight: 700, color: "#9aa3b5", textTransform: "uppercase", letterSpacing: "0.06em" },
-  copyBtn: { display: "inline-flex", alignItems: "center", gap: 5, fontSize: 12, fontWeight: 650, color: "#5a6479", background: "#f0f3f9", border: "none", padding: "5px 10px", borderRadius: 7, cursor: "pointer" },
-  bodyTextMuted: { fontSize: 14, lineHeight: 1.6, margin: 0, color: "#7a8499" },
+  sectionLabel: { fontSize: 11.5, fontWeight: 700, color: "var(--text-faint)", textTransform: "uppercase", letterSpacing: "0.06em" },
+  copyBtn: { display: "inline-flex", alignItems: "center", gap: 5, fontSize: 12, fontWeight: 650, color: "var(--text-secondary)", background: "var(--chip-bg)", border: "none", padding: "5px 10px", borderRadius: 7, cursor: "pointer" },
+  bodyTextMuted: { fontSize: 14, lineHeight: 1.6, margin: 0, color: "var(--text-muted)" },
   stepsList: { margin: 0, paddingLeft: 22, display: "flex", flexDirection: "column", gap: 8 },
-  stepItem: { fontSize: 14.5, lineHeight: 1.6, color: "#2a3346" },
-  summaryText: { margin: 0, fontSize: 13.5, lineHeight: 1.6, whiteSpace: "pre-wrap", fontFamily: "ui-monospace, 'SF Mono', Menlo, monospace", color: "#2a3346", background: "#fafbfe", border: "1px solid #e6ecf7", borderRadius: 9, padding: "12px 14px" },
+  stepItem: { fontSize: 14.5, lineHeight: 1.6, color: "var(--text)" },
+  summaryText: { margin: 0, fontSize: 13.5, lineHeight: 1.6, whiteSpace: "pre-wrap", fontFamily: "ui-monospace, 'SF Mono', Menlo, monospace", color: "var(--text)", background: "var(--code-bg)", border: "1px solid var(--border)", borderRadius: 9, padding: "12px 14px" },
 };
 
 const root = ReactDOM.createRoot(document.getElementById("root"));

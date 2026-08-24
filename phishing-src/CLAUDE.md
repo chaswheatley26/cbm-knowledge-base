@@ -176,6 +176,14 @@ which was ported directly from it (not re-derived):
   tool's 3-tier green/amber/grey `ConfidenceBadge` colors for this tool's 4
   verdict states, adding a red tier (reusing `styles.errorBox`'s red) for
   `malicious` — not a new color introduced to the system.
+- **Dark mode** (added 2026-08-24): `styles.js` and `VerdictBadge.jsx`
+  reference CSS custom properties (`var(--bg)`, `var(--text)`, etc.)
+  instead of literal hex — the actual light/dark values live in
+  `index.html`'s `<head>` (Vite's HTML template, not a JS/CSS asset it
+  bundles), same token names/values as the KB tool. `App.jsx` has its own
+  `useTheme()` hook (not shared code with the KB tool — see the top-level
+  `CLAUDE.md` "Dark mode" section for why, and for the full token list).
+  `CbmMark.jsx`'s own fill colors are intentionally NOT themed.
 
 ## History (chronological, condensed)
 

@@ -4,10 +4,10 @@ import styles from "../styles.js";
 // extended with a red tier for "malicious" — reusing colors already in this
 // design system (red matches styles.errorBox) rather than introducing a new one.
 const VERDICT_STYLES = {
-  malicious: { bg: "#fdeceb", fg: "#b4271e", label: "Malicious" },
-  suspicious: { bg: "#fdf0e3", fg: "#a85a16", label: "Suspicious" },
-  benign: { bg: "#e6f4ec", fg: "#1b7a44", label: "Benign" },
-  insufficient_data: { bg: "#eef1f7", fg: "#5a6479", label: "Insufficient data" },
+  malicious: { bg: "var(--danger-bg)", fg: "var(--danger-fg)", label: "Malicious" },
+  suspicious: { bg: "var(--warn-bg)", fg: "var(--warn-fg)", label: "Suspicious" },
+  benign: { bg: "var(--success-bg)", fg: "var(--success-fg)", label: "Benign" },
+  insufficient_data: { bg: "var(--chip-bg-alt)", fg: "var(--text-secondary)", label: "Insufficient data" },
 };
 
 export default function VerdictBadge({ verdict, confidence }) {

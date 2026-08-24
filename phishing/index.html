@@ -4,7 +4,87 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>CBM IT — Link &amp; Email Triage</title>
-    <script type="module" crossorigin src="/cbm-knowledge-base/phishing/assets/index-BJp9yJlG.js"></script>
+    <script>
+      // Runs before first paint so the app never flashes the wrong theme.
+      // Shared across every page on this origin (this app, the landing
+      // page, kb/) via the same "cbm-theme" localStorage key — a choice
+      // made on one applies everywhere.
+      (function () {
+        try {
+          var stored = localStorage.getItem("cbm-theme");
+          var theme = stored || (window.matchMedia && window.matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light");
+          document.documentElement.setAttribute("data-theme", theme);
+        } catch (e) {}
+      })();
+    </script>
+    <style>
+      :root {
+        --bg: #f5f7fb;
+        --surface: #fff;
+        --logo-bg: #fff;
+        --border: #e6eaf2;
+        --border-input: #d8deea;
+        --border-strong: #c3ccdd;
+        --text: #1a2238;
+        --text-secondary: #5a6479;
+        --text-muted: #7a8499;
+        --text-faint: #9aa3b5;
+        --navy-text: #2b3d6b;
+        --navy-fill: #2b3d6b;
+        --chip-bg: #f0f3f9;
+        --chip-bg-alt: #eef1f7;
+        --success-bg: #e6f4ec;
+        --success-fg: #1b7a44;
+        --success-bg-soft: #f4f8f5;
+        --success-border: #d9ebe0;
+        --warn-bg: #fdf0e3;
+        --warn-fg: #a85a16;
+        --warn-bg-soft: #fdf6e9;
+        --warn-border: #f0dfae;
+        --danger-bg: #fdeceb;
+        --danger-fg: #b4271e;
+        --code-bg: #fafbfe;
+        --shadow-sm: rgba(20,30,60,0.05);
+        --shadow-md: rgba(20,30,60,0.08);
+        --shadow-hover: rgba(20,30,60,0.07);
+        --shadow-navy: rgba(43,61,107,0.25);
+        --focus-ring: rgba(43,61,107,0.14);
+      }
+      :root[data-theme="dark"] {
+        --bg: #10131f;
+        --surface: #1a2036;
+        --logo-bg: #fff;
+        --border: #2b3350;
+        --border-input: #333e5e;
+        --border-strong: #3d4870;
+        --text: #e7eaf5;
+        --text-secondary: #b7c0dc;
+        --text-muted: #8b96b8;
+        --text-faint: #6f7a9c;
+        --navy-text: #8fa3e0;
+        --navy-fill: #3d5490;
+        --chip-bg: #232a47;
+        --chip-bg-alt: #1f2540;
+        --success-bg: #163324;
+        --success-fg: #6fd39a;
+        --success-bg-soft: #132a20;
+        --success-border: #1f4a34;
+        --warn-bg: #3a2c14;
+        --warn-fg: #e0ab5f;
+        --warn-bg-soft: #33280f;
+        --warn-border: #5c451e;
+        --danger-bg: #3a1a1a;
+        --danger-fg: #ef8b83;
+        --code-bg: #151a2e;
+        --shadow-sm: rgba(0,0,0,0.25);
+        --shadow-md: rgba(0,0,0,0.35);
+        --shadow-hover: rgba(0,0,0,0.4);
+        --shadow-navy: rgba(61,84,144,0.35);
+        --focus-ring: rgba(143,163,224,0.28);
+      }
+      body { transition: background 0.15s ease, color 0.15s ease; }
+    </style>
+    <script type="module" crossorigin src="/cbm-knowledge-base/phishing/assets/index-CxCHp-2G.js"></script>
     <link rel="stylesheet" crossorigin href="/cbm-knowledge-base/phishing/assets/index-CC2HJ2Ms.css">
   </head>
   <body>
