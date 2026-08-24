@@ -12,14 +12,14 @@ via `npm run build` — see `vite.config.js`'s `base`/`build.outDir`. GitHub
 Pages serves the built output at
 `https://chaswheatley26.github.io/cbm-knowledge-base/phishing/`, linked from
 the root landing page (`../index.html`) as `href="phishing/"`, same-tab, same
-card style as the KB tool's link. **The landing page's "Pilot" badge was
-removed at the user's request (replaced with a "Try it out!" badge) before
-an end-to-end test was ever confirmed working** — see History #10. The
-`enrich_urls`/`vt_lookup_2` failure loop (History #9) may or may not
-actually be resolved; treat "is this tool actually working right now" as
-still open until a real submit→poll→result run is verified, regardless of
-what the landing page badge says. After editing anything under `src/`,
-rerun `npm run build` and commit both `phishing-src/` (source) and
+card style as the KB tool's link. The landing page shows a "Try it out!"
+badge (swapped from "Pilot" — see History #10) — this was done before an
+end-to-end run was confirmed, but a real test right after **did** complete
+successfully end-to-end (History #11), so the badge now matches reality for
+at least the benign-bare-URL happy path. Malicious/suspicious URLs and
+email input are still untested (see "What's NOT done yet"). After editing
+anything under `src/`, rerun `npm run build` and commit both
+`phishing-src/` (source) and
 `phishing/` (build output) — this repo has no CI, matching how the rest of
 it works.
 
@@ -135,28 +135,13 @@ live in the email itself.
 - `src/lib/api.js` / `App.jsx` / `ResultsView.jsx`: rebuilt around
   `submitTriage()` + `checkStatus()` with the 5s/12s/3min polling schedule.
   Verified the rebuilt frontend builds cleanly with `npm run build`.
+- **Confirmed working end-to-end** (History #11) for a benign bare URL —
+  full submit → poll → complete cycle in ~72s, real verdict with all four
+  enrichment sources succeeding. The `enrich_urls`/`vt_lookup_2` failure
+  loop from History #9 appears to actually be resolved now.
 
 ## What's NOT done yet
 
-- **Still-unconfirmed blocking bug, Rewst-side (see History #9-10):** the
-  `triage` workflow's `enrich_urls` task was failing on its
-  `cbm_phishing_enrich_single_url` sub-workflow right after `vt_lookup_2`
-  (VirusTotal), with no task ID attached — the engine appeared to be
-  killing the sub-workflow's container. Rewst diagnosed this as corrupted
-  internal state on the `vt_wait_2` task and recreated it. **A retest
-  after that fix still showed the identical symptom** (4th consecutive
-  submit+poll test stuck at `{"status":"pending"}` for the full ~3-minute
-  window, request_id `f36f4092-8219-48b4-93f5-19ac59826c66`) — the fix was
-  never confirmed to actually work, and no follow-up log check happened
-  before other work took priority. **Do not assume this is fixed.**
-- **Retest end-to-end** (browser → Worker → `triage` → poll → `get_result`
-  → back) through the actual live page before trusting the tool at all —
-  as of this writing there has never been one single successful completed
-  run, only repeated "still pending forever" failures. The response shape
-  for a genuinely completed `get_result` call is also still unconfirmed
-  for this async version — don't assume `docs/rewst-webhook-contracts.md`'s
-  documented shape is correct yet; it's a best guess (see that doc's own
-  note on this).
 - **Licensing check before real client use** — VirusTotal's and Google Safe
   Browsing's free tiers are non-commercial-use only; CBM is an MSP serving
   paying clients, which is commercial use. Confirm or upgrade before this
@@ -164,6 +149,10 @@ live in the email itself.
 - **Optional hardening**: add a secret key to the Rewst trigger and validate
   it in the Worker, so the webhook URL alone (if it ever leaked) isn't
   enough to invoke the workflow directly.
+- **Only tested with a benign bare URL so far** (`https://google.com`) —
+  an actually malicious/suspicious URL and an email input (with
+  `email_signals` populated) haven't been verified yet. Worth a couple more
+  real test runs covering those paths before fully trusting the tool.
 
 ## Hosting (decided 2026-07-29)
 
@@ -292,3 +281,17 @@ which was ported directly from it (not re-derived):
     backing it up. The badge no longer reflects actual verification status;
     treat the tool as unverified until someone actually gets a completed
     result through the real page.
+11. User ran a live test through the actual page; asked to have it
+    checked. A fresh submit+poll test against the Worker directly
+    (request_id `4ec387e2-fa42-42de-bf26-ba2c1565c506`, `https://google.com`)
+    **completed successfully** on poll 6 (~72s in): `{"status":"complete",
+    "result":{...}}` with a real verdict (benign, 92% confidence) and all
+    four enrichment sources (VirusTotal, URLScan, Safe Browsing, RDAP)
+    returning usable data — no failures/timeouts. The response shape
+    matched exactly what `src/lib/api.js` already expected, so no code
+    changes were needed. This is the first confirmed successful end-to-end
+    run since the async rebuild — the `vt_wait_2` fix from #10 does appear
+    to have actually worked, it just hadn't been re-verified until now.
+    Remaining gaps: only a benign bare URL has been tested — a malicious/
+    suspicious URL and an email input (to exercise `email_signals`) still
+    haven't been.
