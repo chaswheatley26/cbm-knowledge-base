@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { ChevronLeft } from "lucide-react";
 import styles from "./styles.js";
 import CbmMark from "./components/CbmMark.jsx";
 import SubmissionForm from "./components/SubmissionForm.jsx";
@@ -28,13 +29,16 @@ export default function App() {
     <div style={styles.page}>
       <header style={styles.header}>
         <div style={styles.headerInner}>
-          <div style={styles.brand} onClick={backToSubmit}>
-            <div style={styles.logoMark}>
-              <CbmMark size={22} />
-            </div>
-            <div>
-              <div style={styles.brandName}>CBM IT</div>
-              <div style={styles.brandSub}>Link &amp; Email Triage</div>
+          <div style={{ display: "flex", alignItems: "center", gap: 18 }}>
+            <a href="../" style={styles.homeLink}><ChevronLeft size={16} /> CBM IT</a>
+            <div style={styles.brand} onClick={backToSubmit}>
+              <div style={styles.logoMark}>
+                <CbmMark size={22} />
+              </div>
+              <div>
+                <div style={styles.brandName}>CBM IT</div>
+                <div style={styles.brandSub}>Link &amp; Email Triage</div>
+              </div>
             </div>
           </div>
         </div>

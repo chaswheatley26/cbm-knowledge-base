@@ -5,6 +5,7 @@ const styles = {
   header: { background: "#fff", borderBottom: "1px solid #e6eaf2", flexShrink: 0, zIndex: 10 },
   headerInner: { maxWidth: 880, margin: "0 auto", padding: "16px 24px", display: "flex", alignItems: "center", justifyContent: "space-between", gap: 20 },
   brand: { display: "flex", alignItems: "center", gap: 12, cursor: "pointer" },
+  homeLink: { display: "inline-flex", alignItems: "center", gap: 4, fontSize: 13.5, fontWeight: 600, color: "#5a6479", textDecoration: "none", flexShrink: 0 },
   logoMark: { width: 40, height: 40, borderRadius: 11, background: "#fff", border: "1px solid #e6eaf2", display: "flex", alignItems: "center", justifyContent: "center", boxShadow: "0 2px 6px rgba(20,30,60,0.08)" },
   brandName: { fontWeight: 700, fontSize: 17, letterSpacing: "-0.01em" },
   brandSub: { fontSize: 12.5, color: "#7a8499" },

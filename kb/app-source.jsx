@@ -44,7 +44,7 @@ const Copy = LR.Copy || NoIcon;
 // Bump this string every time a new version is shipped, so the visible
 // header text alone confirms whether the latest paste is actually live —
 // no devtools required.
-const BUILD_TAG = "1.22";
+const BUILD_TAG = "1.23";
 
 const PROXY_URL = "https://cbm-kb-proxy.chas-dea.workers.dev";
 
@@ -581,13 +581,16 @@ function App() {
     <div style={styles.page}>
       <header style={styles.header}>
         <div style={styles.headerInner}>
-          <a href="../" style={{ ...styles.brand, textDecoration: "none", color: "inherit" }}>
-            <div style={styles.logoMark}><CbmMark size={26} /></div>
-            <div>
-              <div style={styles.brandName}>CBM Knowledge Base</div>
-              <div style={styles.brandSub}>Resolved ticket search · build {BUILD_TAG}</div>
-            </div>
-          </a>
+          <div style={{ display: "flex", alignItems: "center", gap: 18 }}>
+            <a href="../" style={styles.homeLink}><ChevronLeft size={16} /> CBM IT</a>
+            <a href="../" style={{ ...styles.brand, textDecoration: "none", color: "inherit" }}>
+              <div style={styles.logoMark}><CbmMark size={26} /></div>
+              <div>
+                <div style={styles.brandName}>CBM Knowledge Base</div>
+                <div style={styles.brandSub}>Resolved ticket search · build {BUILD_TAG}</div>
+              </div>
+            </a>
+          </div>
           <nav style={styles.navTabs}>
             <button style={{ ...styles.navTab, ...(page === "search" && !detail ? styles.navTabActive : {}) }} onClick={() => go("search")}>
               <Search size={15} /> Search
@@ -623,6 +626,7 @@ const styles = {
   header: { background: "#fff", borderBottom: "1px solid #e6eaf2", flexShrink: 0, zIndex: 10 },
   headerInner: { maxWidth: 880, margin: "0 auto", padding: "16px 24px", display: "flex", alignItems: "center", justifyContent: "space-between", gap: 20 },
   brand: { display: "flex", alignItems: "center", gap: 12, cursor: "pointer" },
+  homeLink: { display: "inline-flex", alignItems: "center", gap: 4, fontSize: 13.5, fontWeight: 600, color: "#5a6479", textDecoration: "none", flexShrink: 0 },
   logoMark: { width: 40, height: 40, borderRadius: 11, background: "#fff", border: "1px solid #e6eaf2", display: "flex", alignItems: "center", justifyContent: "center", boxShadow: "0 2px 6px rgba(20,30,60,0.08)" },
   brandName: { fontWeight: 700, fontSize: 17, letterSpacing: "-0.01em" },
   brandSub: { fontSize: 12.5, color: "#7a8499" },
