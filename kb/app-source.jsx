@@ -20,6 +20,7 @@ const BookOpen = LR.BookOpen || NoIcon;
 const Tag = LR.Tag || NoIcon;
 const HashIcon = LR.Hash || NoIcon;
 const ChevronLeft = LR.ChevronLeft || NoIcon;
+const ChevronDown = LR.ChevronDown || NoIcon;
 const Building2 = LR.Building2 || NoIcon;
 const Sparkles = LR.Sparkles || NoIcon;
 const ExternalLink = LR.ExternalLink || NoIcon;
@@ -64,7 +65,7 @@ function useTheme() {
 // Bump this string every time a new version is shipped, so the visible
 // header text alone confirms whether the latest paste is actually live —
 // no devtools required.
-const BUILD_TAG = "1.3";
+const BUILD_TAG = "1.31";
 
 const PROXY_URL = "https://cbm-kb-proxy.chas-dea.workers.dev";
 
@@ -414,6 +415,28 @@ function SubmitPage() {
 }
 
 /* ================================ BROWSE ================================ */
+// A native <select> dressed to match the design system. It stays a real
+// <select> on purpose — that keeps keyboard navigation, type-to-jump and the
+// native picker on mobile for free, which matters because the ticket-type
+// list runs to 30+ entries. appearance:none drops the browser's own arrow so
+// the ChevronDown below can sit where the rest of the UI expects it.
+//
+// Note the OPEN option list can't be styled from here (the browser draws it
+// natively) — what makes it render dark in dark mode is the `color-scheme`
+// declaration on :root in index.html's <head>, not anything in this file.
+function FilterSelect({ icon, value, onChange, allLabel, options }) {
+  return (
+    <div style={styles.selectWrap}>
+      <span style={styles.selectIcon}>{icon}</span>
+      <select style={styles.select} value={value} onChange={(e) => onChange(e.target.value)}>
+        <option value="">{allLabel}</option>
+        {options.map((o) => <option key={o} value={o}>{o}</option>)}
+      </select>
+      <span style={styles.selectChevron}><ChevronDown size={15} /></span>
+    </div>
+  );
+}
+
 function BrowsePage({ onOpenDetail }) {
   const [company, setCompany] = useState("");
   const [ticketType, setTicketType] = useState("");
@@ -464,16 +487,20 @@ function BrowsePage({ onOpenDetail }) {
       </div>
 
       <div style={styles.filterRow}>
-        <button onClick={() => selectCompany("")} style={{ ...styles.chip, ...(company === "" ? styles.chipActive : {}) }}>All companies</button>
-        {companies.map((c) => (
-          <button key={c} onClick={() => selectCompany(c)} style={{ ...styles.chip, ...(company === c ? styles.chipActive : {}) }}>{c}</button>
-        ))}
-      </div>
-      <div style={styles.filterRow}>
-        <button onClick={() => selectType("")} style={{ ...styles.chip, ...(ticketType === "" ? styles.chipActive : {}) }}>All types</button>
-        {types.map((t) => (
-          <button key={t} onClick={() => selectType(t)} style={{ ...styles.chip, ...(ticketType === t ? styles.chipActive : {}) }}>{t}</button>
-        ))}
+        <FilterSelect
+          icon={<Building2 size={15} />}
+          value={company}
+          onChange={selectCompany}
+          allLabel="All companies"
+          options={companies}
+        />
+        <FilterSelect
+          icon={<Tag size={15} />}
+          value={ticketType}
+          onChange={selectType}
+          allLabel="All types"
+          options={types}
+        />
       </div>
 
       {error && <div style={styles.errorBox}><AlertCircle size={15} /> {error}</div>}
@@ -719,9 +746,15 @@ const styles = {
   dbSearchBox: { display: "flex", alignItems: "center", gap: 10, background: "var(--surface)", border: "1px solid var(--border-input)", borderRadius: 12, padding: "0 14px", height: 46, marginBottom: 16 },
   dbSearchInput: { flex: 1, border: "none", outline: "none", fontSize: 14.5, background: "transparent", color: "var(--text)" },
   clearBtn: { border: "none", background: "var(--chip-bg-alt)", borderRadius: 8, width: 28, height: 28, display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer", color: "var(--text-secondary)", flexShrink: 0 },
-  filterRow: { display: "flex", flexWrap: "wrap", gap: 8, marginBottom: 12 },
-  chip: { border: "1px solid var(--border-input)", background: "var(--surface)", color: "var(--text-secondary)", borderRadius: 20, padding: "6px 14px", fontSize: 13, fontWeight: 600, cursor: "pointer", transition: "all 0.14s ease" },
-  chipActive: { background: "var(--navy-fill)", borderColor: "var(--navy-fill)", color: "#fff", boxShadow: "0 2px 8px var(--shadow-navy)" },
+  filterRow: { display: "flex", flexWrap: "wrap", gap: 10, marginBottom: 20 },
+  // flex: "1 1 220px" puts the two dropdowns side by side sharing the row on
+  // desktop, then wraps them to full width once the viewport gets narrow.
+  selectWrap: { position: "relative", display: "flex", alignItems: "center", flex: "1 1 220px", minWidth: 0 },
+  selectIcon: { position: "absolute", left: 14, display: "flex", color: "var(--text-muted)", pointerEvents: "none" },
+  selectChevron: { position: "absolute", right: 13, display: "flex", color: "var(--text-muted)", pointerEvents: "none" },
+  // Height/radius/border deliberately match dbSearchBox above it so the
+  // filter row reads as one control group with the keyword box.
+  select: { width: "100%", height: 46, appearance: "none", WebkitAppearance: "none", MozAppearance: "none", background: "var(--surface)", border: "1px solid var(--border-input)", borderRadius: 12, padding: "0 36px 0 40px", fontSize: 14, fontWeight: 600, fontFamily: "inherit", color: "var(--text)", cursor: "pointer", outline: "none", textOverflow: "ellipsis" },
 
   detailCard: { background: "var(--surface)", border: "1px solid var(--border)", borderRadius: 16, padding: "26px 28px" },
   detailHead: { display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: 14, marginBottom: 10 },
